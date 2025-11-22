@@ -1,0 +1,173 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'org.beryx.jlink' version '3.0.1'
+}
+
+version = '0.0.1'
+
+repositories {
+    mavenCentral()
+}
+
+application {
+    mainClass = project.hasProperty('mainClass') ? project.getProperty('mainClass') : 'org.win.Main'
+    mainModule = 'winnow'
+}
+
+javafx {
+    version = '21'
+    modules = ['javafx.controls', 'javafx.swing']
+}
+
+jlink {
+    options = ['--strip-debug', '--compress=zip-6', '--no-header-files', '--no-man-pages']
+
+    launcher {
+        name = 'winnow'
+    }
+
+    jpackage {
+        imageName = 'Winnow'
+        def iconPath = project.file('src/main/resources/org/win/wheat.ico').absolutePath
+        imageOptions = ['--icon', iconPath]
+
+        installerType = project.hasProperty('installerType') ? project.getProperty('installerType') : null
+
+        def commonOptions = [
+            '--vendor', 'Winnow',
+            '--app-version', project.version,
+            '--description', 'Destructive bulk image editor',
+            '--copyright', 'Copyright 2025'
+        ]
+
+        def osName = System.getProperty("os.name").toLowerCase()
+        installerOptions = commonOptions
+
+        if (osName.contains("win")) {
+            installerOptions += [
+                '--win-dir-chooser',
+                '--win-menu',
+                '--win-menu-group', 'Iondrive',
+                '--win-shortcut',
+                '--icon', iconPath
+            ]
+        } else if (osName.contains("mac")) {
+            installerOptions += [
+                '--mac-package-name', 'Winnow'
+            ]
+        } else if (osName.contains("linux")) {
+            installerOptions += [
+                '--linux-shortcut'
+            ]
+        }
+    }
+}
+
+dependencies {
+    implementation 'net.imagej:ij:1.53v'
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
+    implementation 'commons-io:commons-io:2.21.0'
+    testImplementation 'org.assertj:assertj-core:3.23.1'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:unchecked'
+}
+
+test {
+    maxParallelForks = 1
+    forkEvery = 1  // Fork a new JVM for each test class to prevent JavaFX thread exhaustion
+    testLogging {
+        events "failed"
+        exceptionFormat "full"
+    }
+}
+
+// Task to generate screenshot for README
+tasks.register('generateScreenshot', JavaExec) {
+    group = 'documentation'
+    description = 'Generates a screenshot of the application for README'
+
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.win.test.ScreenshotGenerator'
+
+    // Add JavaFX modules
+    jvmArgs = [
+        '--module-path', classpath.asPath,
+        '--add-modules', 'javafx.controls,javafx.swing'
+    ]
+
+    def screenshotFile = file("${projectDir}/docs/winnow-screenshot.png")
+    args screenshotFile.absolutePath
+
+    doFirst {
+        // Ensure docs directory exists
+        file("${projectDir}/docs").mkdirs()
+        println "Generating screenshot (requires graphical environment)..."
+    }
+
+    doLast {
+        println "Screenshot generated at: ${screenshotFile.absolutePath}"
+    }
+}
+
+// Task to update README with screenshot
+tasks.register('updateReadmeScreenshot') {
+    group = 'documentation'
+    description = 'Updates README.md with the latest screenshot'
+
+    dependsOn generateScreenshot
+
+    def readmeFile = file("${projectDir}/Readme.md")
+    def screenshotFile = file("${projectDir}/docs/winnow-screenshot.png")
+    def screenshotPath = 'docs/winnow-screenshot.png'
+
+    doLast {
+        if (!readmeFile.exists()) {
+            throw new GradleException("README.md not found")
+        }
+
+        if (!screenshotFile.exists()) {
+            throw new GradleException("Screenshot not found. Run 'generateScreenshot' first.")
+        }
+
+        def readmeContent = readmeFile.text
+        def screenshotMarkdown = "\n![Winnow Screenshot](${screenshotPath})\n"
+
+        // Insert screenshot after the first heading (# Winnow)
+        def updated = false
+        def lines = readmeContent.readLines()
+        def newLines = []
+
+        for (int i = 0; i < lines.size(); i++) {
+            newLines.add(lines[i])
+
+            // Insert after first heading if not already there
+            if (!updated && lines[i].startsWith('# Winnow') && (i + 1 >= lines.size() || !lines[i + 1].contains('winnow-screenshot.png'))) {
+                // Skip existing screenshot if present
+                if (i + 2 < lines.size() && lines[i + 2].contains('winnow-screenshot.png')) {
+                    i += 2 // Skip the old screenshot lines
+                }
+                newLines.add('')
+                newLines.add("![Winnow Screenshot](${screenshotPath})")
+                newLines.add('')
+                updated = true
+            } else if (lines[i].contains('winnow-screenshot.png') && i > 0) {
+                // Update existing screenshot reference
+                newLines[newLines.size() - 1] = "![Winnow Screenshot](${screenshotPath})"
+                updated = true
+            }
+        }
+
+        if (updated) {
+            readmeFile.text = newLines.join('\n')
+            println "README.md updated with screenshot"
+        } else {
+            println "Screenshot reference already exists in README.md"
+        }
+    }
+}

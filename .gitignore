@@ -1,0 +1,7 @@
+/.gradle/
+/.idea/
+/build/
+/out/production/
+/out/
+local.properties
+notes.txt
