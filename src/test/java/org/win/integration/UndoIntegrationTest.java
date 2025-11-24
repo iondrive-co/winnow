@@ -4,6 +4,7 @@ import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -14,6 +15,7 @@ import org.junit.Test;
 import org.win.model.UndoManager;
 import org.win.test.TestImageGenerator;
 import org.win.view.CustomImageCanvas;
+import org.win.view.PredictiveFilenameEditor;
 import org.win.view.Window;
 
 import javax.imageio.ImageIO;
@@ -289,13 +291,15 @@ public class UndoIntegrationTest {
                 HBox bottomBar = (HBox) root.getBottom();
                 Button undoButton = (Button) bottomBar.getChildren().get(0);
                 Button cropButton = (Button) bottomBar.getChildren().get(1);
-                // After adding navigation buttons, dimension display, and directory label: undo, crop, dimensionDisplay, back, position, forward, fileInfoBox(VBox)
-                // fileInfoBox contains: dirLabel, filenameBox(HBox) which contains filenameField and extensionLabel
-                VBox fileInfoBox = (VBox) bottomBar.getChildren().get(6);
-                HBox filenameBox = (HBox) fileInfoBox.getChildren().get(1);
-                javafx.scene.control.TextField filenameField = (javafx.scene.control.TextField) filenameBox.getChildren().get(0);
+                // After adding navigation buttons, dimension display, and directory label: undo, crop, dimensionDisplay, back, position, forward, scrollPane(contains fileInfoBox)
+                // fileInfoBox contains: dirLabel, filenameEditor(PredictiveFilenameEditor)
+                javafx.scene.control.ScrollPane scrollPane = (javafx.scene.control.ScrollPane) bottomBar.getChildren().get(6);
+                VBox fileInfoBox = (VBox) scrollPane.getContent();
+                PredictiveFilenameEditor filenameEditor = (PredictiveFilenameEditor) fileInfoBox.getChildren().get(1);
+                @SuppressWarnings("unchecked")
+                ComboBox<String> firstComboBox = (ComboBox<String>) filenameEditor.getChildren().get(0);
 
-                filenameField.setText("renamed");
+                firstComboBox.setValue("renamed");
 
                 CustomImageCanvas canvas = window.imageCanvas;
                 canvas.setSelectionRegion(10, 10, 60, 60);
@@ -341,13 +345,15 @@ public class UndoIntegrationTest {
                 HBox bottomBar = (HBox) root.getBottom();
                 Button undoButton = (Button) bottomBar.getChildren().get(0);
                 Button cropButton = (Button) bottomBar.getChildren().get(1);
-                // After adding navigation buttons, dimension display, and directory label: undo, crop, dimensionDisplay, back, position, forward, fileInfoBox(VBox)
-                // fileInfoBox contains: dirLabel, filenameBox(HBox) which contains filenameField and extensionLabel
-                VBox fileInfoBox = (VBox) bottomBar.getChildren().get(6);
-                HBox filenameBox = (HBox) fileInfoBox.getChildren().get(1);
-                javafx.scene.control.TextField filenameField = (javafx.scene.control.TextField) filenameBox.getChildren().get(0);
+                // After adding navigation buttons, dimension display, and directory label: undo, crop, dimensionDisplay, back, position, forward, scrollPane(contains fileInfoBox)
+                // fileInfoBox contains: dirLabel, filenameEditor(PredictiveFilenameEditor)
+                javafx.scene.control.ScrollPane scrollPane = (javafx.scene.control.ScrollPane) bottomBar.getChildren().get(6);
+                VBox fileInfoBox = (VBox) scrollPane.getContent();
+                PredictiveFilenameEditor filenameEditor = (PredictiveFilenameEditor) fileInfoBox.getChildren().get(1);
+                @SuppressWarnings("unchecked")
+                ComboBox<String> firstComboBox = (ComboBox<String>) filenameEditor.getChildren().get(0);
 
-                filenameField.setText("renamed-file1");
+                firstComboBox.setValue("renamed-file");
 
                 CustomImageCanvas canvas = window.imageCanvas;
                 canvas.setSelectionRegion(10, 10, 60, 60);

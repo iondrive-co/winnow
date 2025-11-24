@@ -262,4 +262,53 @@ public class ConfigManagerTest {
         ConfigManager config2 = new ConfigManager();
         assertThat(config2.getLastPosition()).isEqualTo(largePosition);
     }
+
+    @Test
+    public void testUseSimpleFilenameEditor_defaultsToFalse() throws IOException {
+        ConfigManager config = new ConfigManager();
+        assertThat(config.isUseSimpleFilenameEditor()).isFalse();
+    }
+
+    @Test
+    public void testSetUseSimpleFilenameEditor_savesToFile() throws IOException {
+        ConfigManager config = new ConfigManager();
+        config.setUseSimpleFilenameEditor(true);
+
+        assertThat(Files.exists(tempConfigFile)).isTrue();
+        List<String> lines = Files.readAllLines(tempConfigFile);
+        assertThat(lines).anyMatch(line -> line.contains("useSimpleFilenameEditor=true"));
+    }
+
+    @Test
+    public void testSetUseSimpleFilenameEditor_persistsAcrossInstances() throws IOException {
+        ConfigManager config1 = new ConfigManager();
+        config1.setUseSimpleFilenameEditor(true);
+
+        ConfigManager config2 = new ConfigManager();
+        assertThat(config2.isUseSimpleFilenameEditor()).isTrue();
+    }
+
+    @Test
+    public void testSetUseSimpleFilenameEditor_false_persistsAcrossInstances() throws IOException {
+        ConfigManager config1 = new ConfigManager();
+        config1.setUseSimpleFilenameEditor(false);
+
+        ConfigManager config2 = new ConfigManager();
+        assertThat(config2.isUseSimpleFilenameEditor()).isFalse();
+    }
+
+    @Test
+    public void testSetUseSimpleFilenameEditor_updatesExistingValue() throws IOException {
+        ConfigManager config = new ConfigManager();
+        config.setUseSimpleFilenameEditor(true);
+        config.setUseSimpleFilenameEditor(false);
+
+        ConfigManager config2 = new ConfigManager();
+        assertThat(config2.isUseSimpleFilenameEditor()).isFalse();
+
+        // Verify only one useSimpleFilenameEditor entry exists
+        List<String> lines = Files.readAllLines(tempConfigFile);
+        long count = lines.stream().filter(line -> line.startsWith("useSimpleFilenameEditor=")).count();
+        assertThat(count).isEqualTo(1);
+    }
 }

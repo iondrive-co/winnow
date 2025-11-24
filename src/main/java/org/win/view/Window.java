@@ -1,5 +1,6 @@
 package org.win.view;
 
+import clojure.lang.IPersistentMap;
 import ij.ImagePlus;
 import ij.io.Opener;
 import ij.process.ImageProcessor;
@@ -7,20 +8,22 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import org.win.model.UndoManager;
+import org.win.util.FilenameClassifier;
 
 import javax.imageio.ImageIO;
 import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -31,14 +34,18 @@ public class Window {
     private File currentFile;
     private UndoManager undoManager;
     private BiConsumer<File, File> onFileRenamed;
-    private String extension;
-    private TextField filenameField;
+    private FilenameEditor filenameEditor;
     private Stage controlStage;
     private Stage imageStage;
     private Label imageDimensionLabel;
     private Label selectionDimensionLabel;
     private Label directoryLabel;
     private Runnable onDirectoryChange;
+    private org.win.ConfigManager configManager;
+
+    public void setConfigManager(final org.win.ConfigManager configManager) {
+        this.configManager = configManager;
+    }
 
     // Overload for backward compatibility with tests
     public Scene displayFile(final Stage imageStage, final File file, final int currentIndex, final int totalFiles, final BiConsumer<File, File> onFileRenamed, final UndoManager undoManager, final Consumer<File> onUndo, final Runnable onNavigateBack, final Runnable onNavigateForward) {
@@ -93,7 +100,7 @@ public class Window {
                 if (event.getCode() == KeyCode.TAB && event.isControlDown() && controlStage != null) {
                     javafx.application.Platform.runLater(() -> {
                         controlStage.requestFocus();
-                        filenameField.requestFocus();
+                        filenameEditor.requestFocus();
                     });
                     event.consume();
                 }
@@ -107,24 +114,9 @@ public class Window {
     }
 
     private Scene createSceneWithEmbeddedControls(StackPane centerPane, File file, int currentIndex, int totalFiles, Consumer<File> onUndo, Runnable onNavigateBack, Runnable onNavigateForward) {
-        // Create controls inline for test mode
-        String fullFilename = file.getName();
-        String filenameWithoutExt;
-        int lastDotIndex = fullFilename.lastIndexOf('.');
-        if (lastDotIndex > 0) {
-            filenameWithoutExt = fullFilename.substring(0, lastDotIndex);
-            this.extension = fullFilename.substring(lastDotIndex);
-        } else {
-            filenameWithoutExt = fullFilename;
-            this.extension = "";
-        }
-
-        this.filenameField = new TextField(filenameWithoutExt);
-        filenameField.setStyle("-fx-font-size: 16px;");
-        HBox.setHgrow(filenameField, Priority.ALWAYS);
-
-        Label extensionLabel = new Label(extension);
-        extensionLabel.setStyle("-fx-font-size: 16px;");
+        // Create filename editor based on config
+        this.filenameEditor = createFilenameEditor(file);
+        HBox.setHgrow((HBox) filenameEditor, Priority.ALWAYS);
 
         this.undoButton = new Button("Undo");
         undoButton.setDisable(!undoManager.canUndo());
@@ -140,6 +132,7 @@ public class Window {
             }
         });
         undoButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        undoButton.setMinWidth(Button.USE_PREF_SIZE);
 
         this.cropButton = new Button("Crop Image");
         cropButton.setOnAction(e -> {
@@ -150,6 +143,7 @@ public class Window {
             }
         });
         cropButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        cropButton.setMinWidth(Button.USE_PREF_SIZE);
 
         Button backButton = new Button("←");
         backButton.setOnAction(e -> {
@@ -158,6 +152,7 @@ public class Window {
             }
         });
         backButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        backButton.setMinWidth(Button.USE_PREF_SIZE);
 
         Button forwardButton = new Button("→");
         forwardButton.setOnAction(e -> {
@@ -166,6 +161,7 @@ public class Window {
             }
         });
         forwardButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        forwardButton.setMinWidth(Button.USE_PREF_SIZE);
 
         Label positionLabel = new Label(String.format("%d/%d", currentIndex, totalFiles));
         positionLabel.setStyle("-fx-font-size: 16px;");
@@ -174,15 +170,22 @@ public class Window {
 
         // Create filename section with directory above
         Label dirLabel = createDirectoryLabel(file);
-        HBox filenameBox = new HBox(filenameField, extensionLabel);
-        filenameBox.setSpacing(0);
-        filenameBox.setAlignment(Pos.CENTER_LEFT);
-        VBox fileInfoBox = new VBox(dirLabel, filenameBox);
+        VBox fileInfoBox = new VBox(dirLabel, (HBox) filenameEditor);
         fileInfoBox.setSpacing(2);
         fileInfoBox.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(fileInfoBox, Priority.ALWAYS);
 
-        HBox controlBox = new HBox(undoButton, cropButton, dimensionDisplay, backButton, positionLabel, forwardButton, fileInfoBox);
+        // Wrap in ScrollPane to prevent button resizing when adding fields
+        ScrollPane scrollPane = new ScrollPane(fileInfoBox);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background-color: transparent;");
+        scrollPane.setPrefHeight(80);
+        scrollPane.setMinHeight(80);
+        scrollPane.setPrefViewportWidth(400);
+        HBox.setHgrow(scrollPane, Priority.ALWAYS);
+
+        HBox controlBox = new HBox(undoButton, cropButton, dimensionDisplay, backButton, positionLabel, forwardButton, scrollPane);
         controlBox.setAlignment(Pos.CENTER_LEFT);
         controlBox.setSpacing(20);
         controlBox.setPadding(new Insets(15, 20, 15, 20));
@@ -195,6 +198,12 @@ public class Window {
 
         // Handle keyboard navigation for test mode
         scene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+            // Don't intercept arrow keys if user is editing text
+            final Node focusOwner = scene.getFocusOwner();
+            if (focusOwner instanceof TextField || focusOwner instanceof ComboBox) {
+                return;
+            }
+
             if (event.getCode() == KeyCode.LEFT) {
                 // Left arrow: navigate back
                 if (onNavigateBack != null) {
@@ -219,25 +228,8 @@ public class Window {
     }
 
     private void createOrUpdateControlWindow(final File file, final int currentIndex, final int totalFiles, final Consumer<File> onUndo, final Runnable onNavigateBack, final Runnable onNavigateForward) {
-        // Split filename into name and extension
-        String fullFilename = file.getName();
-        String filenameWithoutExt;
-        int lastDotIndex = fullFilename.lastIndexOf('.');
-        if (lastDotIndex > 0) {
-            filenameWithoutExt = fullFilename.substring(0, lastDotIndex);
-            this.extension = fullFilename.substring(lastDotIndex);
-        } else {
-            filenameWithoutExt = fullFilename;
-            this.extension = "";
-        }
-
-        // Create controls
-        this.filenameField = new TextField(filenameWithoutExt);
-        filenameField.setStyle("-fx-font-size: 16px;");
-        HBox.setHgrow(filenameField, Priority.ALWAYS);
-
-        Label extensionLabel = new Label(extension);
-        extensionLabel.setStyle("-fx-font-size: 16px;");
+        // Create filename editor based on config
+        this.filenameEditor = createFilenameEditor(file);
 
         this.undoButton = new Button("Undo");
         undoButton.setDisable(!undoManager.canUndo());
@@ -253,6 +245,7 @@ public class Window {
             }
         });
         undoButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        undoButton.setMinWidth(Button.USE_PREF_SIZE);
 
         this.cropButton = new Button("Crop Image");
         cropButton.setOnAction(e -> {
@@ -263,6 +256,7 @@ public class Window {
             }
         });
         cropButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        cropButton.setMinWidth(Button.USE_PREF_SIZE);
 
         Button backButton = new Button("←");
         backButton.setOnAction(e -> {
@@ -271,6 +265,7 @@ public class Window {
             }
         });
         backButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        backButton.setMinWidth(Button.USE_PREF_SIZE);
 
         Button forwardButton = new Button("→");
         forwardButton.setOnAction(e -> {
@@ -279,6 +274,7 @@ public class Window {
             }
         });
         forwardButton.setStyle("-fx-font-size: 18px; -fx-padding: 15px 25px;");
+        forwardButton.setMinWidth(Button.USE_PREF_SIZE);
 
         Label positionLabel = new Label(String.format("%d/%d", currentIndex, totalFiles));
         positionLabel.setStyle("-fx-font-size: 16px;");
@@ -287,15 +283,22 @@ public class Window {
 
         // Create filename section with directory above
         Label dirLabel = createDirectoryLabel(file);
-        HBox filenameBox = new HBox(filenameField, extensionLabel);
-        filenameBox.setSpacing(0);
-        filenameBox.setAlignment(Pos.CENTER_LEFT);
-        VBox fileInfoBox = new VBox(dirLabel, filenameBox);
+        VBox fileInfoBox = new VBox(dirLabel, (HBox) filenameEditor);
         fileInfoBox.setSpacing(2);
         fileInfoBox.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(fileInfoBox, Priority.ALWAYS);
 
-        HBox controlBox = new HBox(undoButton, cropButton, dimensionDisplay, backButton, positionLabel, forwardButton, fileInfoBox);
+        // Wrap in ScrollPane to prevent button resizing when adding fields
+        ScrollPane scrollPane = new ScrollPane(fileInfoBox);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background-color: transparent;");
+        scrollPane.setPrefHeight(80);
+        scrollPane.setMinHeight(80);
+        scrollPane.setPrefViewportWidth(400);
+        HBox.setHgrow(scrollPane, Priority.ALWAYS);
+
+        HBox controlBox = new HBox(undoButton, cropButton, dimensionDisplay, backButton, positionLabel, forwardButton, scrollPane);
         controlBox.setAlignment(Pos.CENTER_LEFT);
         controlBox.setSpacing(20);
         controlBox.setPadding(new Insets(15, 20, 15, 20));
@@ -304,6 +307,10 @@ public class Window {
 
         // Handle keyboard shortcuts
         controlScene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+            // Don't intercept arrow keys if user is editing text
+            final Node focusOwner = controlScene.getFocusOwner();
+            final boolean isEditingText = focusOwner instanceof TextField || focusOwner instanceof ComboBox;
+
             if (event.getCode() == KeyCode.TAB && event.isControlDown()) {
                 // Ctrl+Tab: cycle back to image window
                 javafx.application.Platform.runLater(() -> {
@@ -311,13 +318,13 @@ public class Window {
                     imageCanvas.requestFocus();
                 });
                 event.consume();
-            } else if (event.getCode() == KeyCode.LEFT && !event.isControlDown()) {
+            } else if (event.getCode() == KeyCode.LEFT && !event.isControlDown() && !isEditingText) {
                 // Left arrow: navigate back
                 if (onNavigateBack != null) {
                     onNavigateBack.run();
                 }
                 event.consume();
-            } else if (event.getCode() == KeyCode.RIGHT && !event.isControlDown()) {
+            } else if (event.getCode() == KeyCode.RIGHT && !event.isControlDown() && !isEditingText) {
                 // Right arrow: navigate forward
                 if (onNavigateForward != null) {
                     onNavigateForward.run();
@@ -478,9 +485,9 @@ public class Window {
     private void saveImageOperation(RenderedImage image) throws IOException {
         undoManager.saveStateBeforeOperation(currentFile);
 
-        String newFilename = filenameField.getText() + extension;
-        File outputFile = new File(currentFile.getParentFile(), newFilename);
-        String format = getImageFormat(currentFile);
+        final String newFilename = filenameEditor.getFilename();
+        final File outputFile = new File(currentFile.getParentFile(), newFilename);
+        final String format = getImageFormat(currentFile);
         ImageIO.write(image, format, outputFile);
 
         if (!newFilename.equals(currentFile.getName())) {
@@ -570,5 +577,42 @@ public class Window {
 
     public Stage getControlStage() {
         return controlStage;
+    }
+
+    private FilenameEditor createFilenameEditor(final File file) {
+        // Check config to determine which editor to use
+        final boolean useSimple = configManager != null && configManager.isUseSimpleFilenameEditor();
+
+        if (useSimple) {
+            return new SimpleFilenameEditor(file);
+        } else {
+            final IPersistentMap model = buildModelFromDirectory(file.getParentFile());
+            return new PredictiveFilenameEditor(file, model);
+        }
+    }
+
+    private IPersistentMap buildModelFromDirectory(final File directory) {
+        if (directory == null || !directory.isDirectory()) {
+            return FilenameClassifier.buildModel(Collections.emptyList());
+        }
+
+        final File[] files = directory.listFiles((dir, name) -> {
+            final String lowerName = name.toLowerCase();
+            return lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
+                   lowerName.endsWith(".png") || lowerName.endsWith(".gif") ||
+                   lowerName.endsWith(".bmp") || lowerName.endsWith(".tiff") ||
+                   lowerName.endsWith(".tif");
+        });
+
+        if (files == null || files.length == 0) {
+            return FilenameClassifier.buildModel(Collections.emptyList());
+        }
+
+        final String[] filenames = new String[files.length];
+        for (int i = 0; i < files.length; i++) {
+            filenames[i] = files[i].getName();
+        }
+
+        return FilenameClassifier.buildModel(Arrays.asList(filenames));
     }
 }

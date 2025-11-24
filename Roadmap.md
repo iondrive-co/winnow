@@ -1,5 +1,6 @@
 Upcoming:
-- V0.2 - Change directory, Name fields, License, Github
+- 0.3 Edit selection size, editable x y offsets
 
 Done:
-- V0.1 Select directory, navigate, crop, rotate, package, config
+- 0.1 Select and change directory, navigate, crop, rotate, package, config
+- 0.2 Name fields

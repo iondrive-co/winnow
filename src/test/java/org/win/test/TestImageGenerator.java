@@ -259,4 +259,247 @@ public final class TestImageGenerator {
         final int textWidth = fm.stringWidth(text);
         g2d.drawString(text, x + (w - textWidth) / 2, y + h / 2);
     }
+
+    /**
+     * Generates a procedurally created abstract art image with unique patterns.
+     *
+     * @param seed Seed for random generation (for reproducibility)
+     * @param outputFile Target file to save the image
+     * @return The created file
+     * @throws IOException If image creation fails
+     */
+    public static File generateAbstractArt(final int seed, final File outputFile) throws IOException {
+        final int width = 1200;
+        final int height = 800;
+
+        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final Graphics2D g2d = image.createGraphics();
+
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+        final Random rand = new Random(seed);
+        final int artStyle = rand.nextInt(5);
+
+        switch (artStyle) {
+            case 0:
+                generateFlowingCurves(g2d, width, height, rand);
+                break;
+            case 1:
+                generateGeometricShapes(g2d, width, height, rand);
+                break;
+            case 2:
+                generateParticleField(g2d, width, height, rand);
+                break;
+            case 3:
+                generateMondrianStyle(g2d, width, height, rand);
+                break;
+            case 4:
+                generateColorBlocks(g2d, width, height, rand);
+                break;
+        }
+
+        g2d.dispose();
+        ImageIO.write(image, "jpg", outputFile);
+        return outputFile;
+    }
+
+    private static void generateFlowingCurves(final Graphics2D g2d, final int width, final int height, final Random rand) {
+        // Background gradient
+        final Color c1 = new Color(rand.nextInt(100) + 20, rand.nextInt(100) + 20, rand.nextInt(100) + 80);
+        final Color c2 = new Color(rand.nextInt(100) + 80, rand.nextInt(100) + 20, rand.nextInt(100) + 20);
+        g2d.setPaint(new GradientPaint(0, 0, c1, width, height, c2));
+        g2d.fillRect(0, 0, width, height);
+
+        // Flowing curves with transparency
+        for (int i = 0; i < 30; i++) {
+            final int r = rand.nextInt(200) + 55;
+            final int g = rand.nextInt(200) + 55;
+            final int b = rand.nextInt(200) + 55;
+            final int alpha = rand.nextInt(100) + 50;
+            g2d.setColor(new Color(r, g, b, alpha));
+            g2d.setStroke(new BasicStroke(rand.nextInt(20) + 5, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+            final int points = rand.nextInt(5) + 3;
+            final int[] xPoints = new int[points];
+            final int[] yPoints = new int[points];
+            for (int j = 0; j < points; j++) {
+                xPoints[j] = rand.nextInt(width);
+                yPoints[j] = rand.nextInt(height);
+            }
+
+            for (int j = 0; j < points - 1; j++) {
+                g2d.drawLine(xPoints[j], yPoints[j], xPoints[j + 1], yPoints[j + 1]);
+            }
+        }
+    }
+
+    private static void generateGeometricShapes(final Graphics2D g2d, final int width, final int height, final Random rand) {
+        // Background
+        final Color bg = new Color(rand.nextInt(50) + 10, rand.nextInt(50) + 10, rand.nextInt(50) + 10);
+        g2d.setColor(bg);
+        g2d.fillRect(0, 0, width, height);
+
+        // Random geometric shapes
+        for (int i = 0; i < 20; i++) {
+            final int r = rand.nextInt(200) + 55;
+            final int g = rand.nextInt(200) + 55;
+            final int b = rand.nextInt(200) + 55;
+            final int alpha = rand.nextInt(150) + 105;
+            g2d.setColor(new Color(r, g, b, alpha));
+
+            final int x = rand.nextInt(width);
+            final int y = rand.nextInt(height);
+            final int size = rand.nextInt(200) + 50;
+
+            final int shapeType = rand.nextInt(3);
+            switch (shapeType) {
+                case 0: // Circle
+                    g2d.fillOval(x, y, size, size);
+                    break;
+                case 1: // Rectangle
+                    g2d.fillRect(x, y, size, size * rand.nextInt(3) + 1);
+                    break;
+                case 2: // Triangle
+                    final int[] xTri = {x, x + size, x + size / 2};
+                    final int[] yTri = {y + size, y + size, y};
+                    g2d.fillPolygon(xTri, yTri, 3);
+                    break;
+            }
+        }
+    }
+
+    private static void generateParticleField(final Graphics2D g2d, final int width, final int height, final Random rand) {
+        // Gradient background
+        final GradientPaint gradient = new GradientPaint(
+            0, 0, new Color(10, 10, 30),
+            width, height, new Color(30, 10, 50)
+        );
+        g2d.setPaint(gradient);
+        g2d.fillRect(0, 0, width, height);
+
+        // Particles with connections
+        final int particleCount = 150;
+        final int[][] particles = new int[particleCount][2];
+
+        for (int i = 0; i < particleCount; i++) {
+            particles[i][0] = rand.nextInt(width);
+            particles[i][1] = rand.nextInt(height);
+        }
+
+        // Draw connections
+        g2d.setStroke(new BasicStroke(1));
+        for (int i = 0; i < particleCount; i++) {
+            for (int j = i + 1; j < particleCount; j++) {
+                final int dx = particles[i][0] - particles[j][0];
+                final int dy = particles[i][1] - particles[j][1];
+                final double dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 150) {
+                    final int alpha = (int) (150 - dist);
+                    g2d.setColor(new Color(100, 150, 255, alpha));
+                    g2d.drawLine(particles[i][0], particles[i][1], particles[j][0], particles[j][1]);
+                }
+            }
+        }
+
+        // Draw particles
+        for (int i = 0; i < particleCount; i++) {
+            final int size = rand.nextInt(8) + 2;
+            g2d.setColor(new Color(150, 200, 255, 200));
+            g2d.fillOval(particles[i][0] - size / 2, particles[i][1] - size / 2, size, size);
+        }
+    }
+
+    private static void generateMondrianStyle(final Graphics2D g2d, final int width, final int height, final Random rand) {
+        // White background
+        g2d.setColor(Color.WHITE);
+        g2d.fillRect(0, 0, width, height);
+
+        final Color[] mondrianColors = {
+            new Color(220, 20, 20),   // Red
+            new Color(20, 20, 220),   // Blue
+            new Color(240, 220, 20),  // Yellow
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE
+        };
+
+        // Recursive subdivision
+        subdivideRectangle(g2d, 0, 0, width, height, rand, mondrianColors, 0);
+
+        // Draw black grid lines
+        g2d.setColor(Color.BLACK);
+        g2d.setStroke(new BasicStroke(8));
+        drawGrid(g2d, 0, 0, width, height, rand, 0);
+    }
+
+    private static void subdivideRectangle(final Graphics2D g2d, final int x, final int y, final int w, final int h,
+                                          final Random rand, final Color[] colors, final int depth) {
+        if (depth > 4 || w < 100 || h < 100) {
+            g2d.setColor(colors[rand.nextInt(colors.length)]);
+            g2d.fillRect(x, y, w, h);
+            return;
+        }
+
+        if (rand.nextBoolean() && w > 200) {
+            final int splitX = x + w / 3 + rand.nextInt(w / 3);
+            subdivideRectangle(g2d, x, y, splitX - x, h, rand, colors, depth + 1);
+            subdivideRectangle(g2d, splitX, y, w - (splitX - x), h, rand, colors, depth + 1);
+        } else if (h > 200) {
+            final int splitY = y + h / 3 + rand.nextInt(h / 3);
+            subdivideRectangle(g2d, x, y, w, splitY - y, rand, colors, depth + 1);
+            subdivideRectangle(g2d, x, splitY, w, h - (splitY - y), rand, colors, depth + 1);
+        } else {
+            g2d.setColor(colors[rand.nextInt(colors.length)]);
+            g2d.fillRect(x, y, w, h);
+        }
+    }
+
+    private static void drawGrid(final Graphics2D g2d, final int x, final int y, final int w, final int h,
+                                 final Random rand, final int depth) {
+        if (depth > 4 || w < 100 || h < 100) {
+            return;
+        }
+
+        if (rand.nextBoolean() && w > 200) {
+            final int splitX = x + w / 3 + rand.nextInt(w / 3);
+            g2d.drawLine(splitX, y, splitX, y + h);
+            drawGrid(g2d, x, y, splitX - x, h, rand, depth + 1);
+            drawGrid(g2d, splitX, y, w - (splitX - x), h, rand, depth + 1);
+        } else if (h > 200) {
+            final int splitY = y + h / 3 + rand.nextInt(h / 3);
+            g2d.drawLine(x, splitY, x + w, splitY);
+            drawGrid(g2d, x, y, w, splitY - y, rand, depth + 1);
+            drawGrid(g2d, x, splitY, w, h - (splitY - y), rand, depth + 1);
+        }
+    }
+
+    private static void generateColorBlocks(final Graphics2D g2d, final int width, final int height, final Random rand) {
+        // Background
+        g2d.setColor(new Color(rand.nextInt(30) + 10, rand.nextInt(30) + 10, rand.nextInt(30) + 10));
+        g2d.fillRect(0, 0, width, height);
+
+        // Generate color palette
+        final int baseHue = rand.nextInt(360);
+        final Color[] palette = new Color[5];
+        for (int i = 0; i < 5; i++) {
+            final int hue = (baseHue + i * 72) % 360;
+            palette[i] = Color.getHSBColor(hue / 360f, 0.6f + rand.nextFloat() * 0.3f, 0.7f + rand.nextFloat() * 0.2f);
+        }
+
+        // Draw color blocks
+        final int blockSize = 100;
+        for (int x = 0; x < width; x += blockSize) {
+            for (int y = 0; y < height; y += blockSize) {
+                if (rand.nextFloat() > 0.3) {
+                    final Color c = palette[rand.nextInt(palette.length)];
+                    g2d.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), rand.nextInt(150) + 105));
+                    final int offset = rand.nextInt(20);
+                    final int size = blockSize + rand.nextInt(40) - 20;
+                    g2d.fillRect(x + offset, y + offset, size, size);
+                }
+            }
+        }
+    }
 }

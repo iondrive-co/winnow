@@ -1,11 +1,17 @@
-# Winnow - A destructive multiplatform bulk image editor
+# Winnow - A multiplatform in-place image editor
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
 
-Edits to crop, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp 
-directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown). You will be prompted for an image directory 
-on first launch, this will be saved to a config file in your user directory (i.e. ~/.winnow.conf on linux, 
-%userprofile%/.winnow.conf on windows) so you will not be prompted again.
+
+- Edits to crop, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
+  directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown).
+- You will be prompted for an image directory on first launch, this will be saved to a config file in your user
+  directory (i.e. ~/.winnow.conf on linux, %userprofile%/.winnow.conf on windows) so you will not be prompted again.
+- The file can be renamed by typing a new name in the combo box at the bottom, which is populated with frequently
+  chosen values from the directory. If there is a filename pattern this will attempt to parse it and break the input
+  into multiple selection boxes if necessary, predicting the most likely name based on frequency. Additional components
+  can be added dynamically via the "+" button before the file extension. To turn off predictive editing and use a
+  single text field instead of combo boxes, set `useSimpleFilenameEditor=true` in the config file.
 
 ## Controls:
 
@@ -36,40 +42,31 @@ The selection rectangle can be moved by dragging the green selection handle.
 - Uses the ImageJ library to do a lot of the heavy lifting of image processing and manipulation
 - Uses JavaFX because it has out of the box support for multitouch
 - ImageJ uses swing, so this requires converting the buffered image to JavaFX (as embedding a swing component in JavaFX
-  can be slow) and maintaining our own ROI.
+  can be slow) and maintaining our own ROI. BufferedImage → JavaFX Image conversion happens at render time to avoid Swing/JavaFX mixing issues
 
 ### Classes
 
 - `UndoManager`: Manages undo queue using byte-for-byte file copying to preserve image quality. Creates temp directories per session with automatic cleanup via shutdown hooks.
-- `ConfigManager`: Handles persistent user settings (last directory, last position) in `~/.winnow.conf` using Java Properties format.
-- `Window`: Main UI container managing the filename editor, crop/undo buttons, and file operations. Consolidates common image save/rename operations.
+- `ConfigManager`: Handles persistent user settings (last directory, last position, filename editor mode) in `~/.winnow.conf` using Java Properties format.
+- `Window`: Main UI container managing the filename editor, crop/undo buttons, and file operations. Consolidates common image save/rename operations. Dynamically selects between simple and predictive filename editors based on config.
+- `PredictiveFilenameEditor`: Parses filenames into components with dropdown suggestions. Displays editable separators between components. Includes a "+" button to dynamically add new filename components.
+- `SimpleFilenameEditor`: Single text field filename editor with non-editable extension label.
 - `CustomImageCanvas`: Interactive JavaFX Canvas for image display with selection ROI and rotation. Converts ImageJ BufferedImages to JavaFX format. Maintains original image copy for quality-preserving rotation. Implements intelligent selection rectangle clamping when zoomed past window bounds.
 - `InputDispatcher`: Centralizes keyboard shortcuts, mouse/touchscreen gestures, and zoom controls. Uses event filtering to support modifier key combinations.
 - `Main`: JavaFX Application that manages the image directory, file navigation, per-image undo managers, and application lifecycle.
 
-### Design Decisions
+#### Image Quality Preservation
 
-**Image Quality Preservation**:
 - Undo operations use `Files.copy()` for byte-for-byte file copying instead of re-encoding images
 - Rotation always transforms from the original unrotated image to avoid cumulative quality loss
 - Cumulative rotation tracking prevents canvas size drift during rotation
 
-**Library Integration**:
-- ImageJ library provides robust image loading and processing (handles many formats, color spaces)
-- JavaFX chosen for native multitouch/gesture support
-- BufferedImage → JavaFX Image conversion happens at render time to avoid Swing/JavaFX mixing issues
-
-**Per-Image State Management**:
+#### Per-Image State Management
 - Each image gets its own UndoManager instance (tracked by position index)
 - File renames tracked through undo operations to support correct restoration
 - Config file remembers last directory and position for seamless session resumption
 
-**Input Handling**:
-- Keyboard shortcuts support modifier combinations (Ctrl, Shift, Alt)
-- Mouse drag threshold (50px) prevents accidental navigation
-- Touchscreen rotation via red handle in top-right corner with live preview
-
-**Zoom and Selection Management**:
+#### Zoom and Selection Management
 - Selection rectangle visibility is maintained when zooming beyond window bounds
 - Visible canvas bounds calculated dynamically based on scene size and zoom scale
 - Selection dimensions in control panel reflect actual visible image area, not full selection

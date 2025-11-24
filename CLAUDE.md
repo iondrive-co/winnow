@@ -15,11 +15,14 @@ Write or modify at least one integration test which displays the actual window o
 
 ## After Making Changes
 
+Compile the project and make sure all tests pass. If a test is failing and you can't work out why, don't proceed and
+don't remove it unless you can provide a clear justification why it is no longer needed for me to review.
+
+Once tests are passing:
 Update the **Classes** section in `Readme.md` if component responsibilities change.
 Update the **Design Decisions** section if architectural patterns or key strategies change
 Only if issues were encountered which required user interaction to correct, then update the .claude.md with something
 that fixes any problems encountered automatically in the future.
-
 Keep descriptions concise for all of these.
 
 # Coordinate Systems and Rendering

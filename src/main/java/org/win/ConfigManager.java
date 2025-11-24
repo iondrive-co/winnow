@@ -15,6 +15,7 @@ public class ConfigManager {
     private static final String CONFIG_FILE = ".winnow.conf";
     private static final String LAST_DIRECTORY_KEY = "lastDirectory";
     private static final String LAST_POSITION_KEY = "lastPosition";
+    private static final String USE_SIMPLE_FILENAME_EDITOR_KEY = "useSimpleFilenameEditor";
 
     private final Path configPath;
     private final Properties properties;
@@ -70,6 +71,23 @@ public class ConfigManager {
         save();
     }
 
+    /**
+     * Gets whether to use simple filename editor instead of combo box classifier.
+     * Defaults to false (use combo box classifier).
+     */
+    public boolean isUseSimpleFilenameEditor() {
+        final String value = properties.getProperty(USE_SIMPLE_FILENAME_EDITOR_KEY);
+        return value != null && Boolean.parseBoolean(value);
+    }
+
+    /**
+     * Sets whether to use simple filename editor instead of combo box classifier.
+     */
+    public void setUseSimpleFilenameEditor(boolean useSimple) throws IOException {
+        properties.setProperty(USE_SIMPLE_FILENAME_EDITOR_KEY, String.valueOf(useSimple));
+        save();
+    }
+
     private void save() throws IOException {
         try (BufferedWriter writer = Files.newBufferedWriter(configPath)) {
             writer.write("# The last directory that was opened in Winnow\n");
@@ -80,6 +98,11 @@ public class ConfigManager {
             writer.write("# The last image position (index) in the directory\n");
             if (properties.containsKey(LAST_POSITION_KEY)) {
                 writer.write(LAST_POSITION_KEY + "=" + escapePropertyValue(properties.getProperty(LAST_POSITION_KEY)) + "\n");
+            }
+            writer.write("\n");
+            writer.write("# Use simple filename editor (true) or combo box classifier (false)\n");
+            if (properties.containsKey(USE_SIMPLE_FILENAME_EDITOR_KEY)) {
+                writer.write(USE_SIMPLE_FILENAME_EDITOR_KEY + "=" + escapePropertyValue(properties.getProperty(USE_SIMPLE_FILENAME_EDITOR_KEY)) + "\n");
             }
         }
     }

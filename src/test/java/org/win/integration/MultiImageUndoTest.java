@@ -4,7 +4,7 @@ import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.TextField;
+import javafx.scene.control.ComboBox;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -15,6 +15,7 @@ import org.junit.Test;
 import org.win.model.UndoManager;
 import org.win.test.TestImageGenerator;
 import org.win.view.CustomImageCanvas;
+import org.win.view.PredictiveFilenameEditor;
 import org.win.view.Window;
 
 import javax.imageio.ImageIO;
@@ -370,12 +371,14 @@ public class MultiImageUndoTest {
                 BorderPane root1 = (BorderPane) scene1.getRoot();
                 HBox bottomBar1 = (HBox) root1.getBottom();
                 Button cropButton1 = (Button) bottomBar1.getChildren().get(1);
-                // After adding directory label: undo, crop, dimensionDisplay, back, position, forward, fileInfoBox(VBox)
-                VBox fileInfoBox1 = (VBox) bottomBar1.getChildren().get(6);
-                HBox filenameBox1 = (HBox) fileInfoBox1.getChildren().get(1);
-                TextField filenameField1 = (TextField) filenameBox1.getChildren().get(0);
+                // After adding directory label: undo, crop, dimensionDisplay, back, position, forward, scrollPane(contains fileInfoBox)
+                javafx.scene.control.ScrollPane scrollPane1 = (javafx.scene.control.ScrollPane) bottomBar1.getChildren().get(6);
+                VBox fileInfoBox1 = (VBox) scrollPane1.getContent();
+                PredictiveFilenameEditor filenameEditor1 = (PredictiveFilenameEditor) fileInfoBox1.getChildren().get(1);
+                @SuppressWarnings("unchecked")
+                ComboBox<String> firstComboBox1 = (ComboBox<String>) filenameEditor1.getChildren().get(0);
 
-                filenameField1.setText("renamed-image1");
+                firstComboBox1.setValue("renamed-image");
                 CustomImageCanvas canvas1 = window.imageCanvas;
                 canvas1.setSelectionRegion(10, 10, 80, 80);
                 cropButton1.fire();
@@ -392,12 +395,14 @@ public class MultiImageUndoTest {
                 BorderPane root2 = (BorderPane) scene2.getRoot();
                 HBox bottomBar2 = (HBox) root2.getBottom();
                 Button cropButton2 = (Button) bottomBar2.getChildren().get(1);
-                // After adding directory label: undo, crop, dimensionDisplay, back, position, forward, fileInfoBox(VBox)
-                VBox fileInfoBox2 = (VBox) bottomBar2.getChildren().get(6);
-                HBox filenameBox2 = (HBox) fileInfoBox2.getChildren().get(1);
-                TextField filenameField2 = (TextField) filenameBox2.getChildren().get(0);
+                // After adding directory label: undo, crop, dimensionDisplay, back, position, forward, scrollPane(contains fileInfoBox)
+                javafx.scene.control.ScrollPane scrollPane2 = (javafx.scene.control.ScrollPane) bottomBar2.getChildren().get(6);
+                VBox fileInfoBox2 = (VBox) scrollPane2.getContent();
+                PredictiveFilenameEditor filenameEditor2 = (PredictiveFilenameEditor) fileInfoBox2.getChildren().get(1);
+                @SuppressWarnings("unchecked")
+                ComboBox<String> firstComboBox2 = (ComboBox<String>) filenameEditor2.getChildren().get(0);
 
-                filenameField2.setText("renamed-image2");
+                firstComboBox2.setValue("renamed-image");
                 CustomImageCanvas canvas2 = window.imageCanvas;
                 canvas2.setSelectionRegion(20, 20, 100, 100);
                 cropButton2.fire();

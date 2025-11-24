@@ -41,23 +41,56 @@ public final class ScreenshotGenerator extends Application {
 
     @Override
     public void start(final Stage primaryStage) throws Exception {
-        // Create temp directory for demo images
-        tempDir = Files.createTempDirectory("winnow-screenshot");
+        // Create temp directory with realistic name
+        final Path baseTempDir = Files.createTempDirectory("winnow-demo");
+        tempDir = baseTempDir.resolve("abstract-art-gallery-2024");
+        Files.createDirectories(tempDir);
 
-        // Generate demo image
-        final File demoImage = new File(tempDir.toFile(), "demo.jpg");
-        TestImageGenerator.generateDemoImage(demoImage);
+        // Generate multiple abstract art images with realistic filenames
+        final String[] filenames = {
+            "1.abstract-001.jpg",
+            "2.abstract-002.jpg",
+            "3.abstract-003.jpg",
+            "4.abstract-004.jpg",
+            "5.abstract-005.jpg",
+            "6.abstract-006.jpg",
+            "7.abstract-007.jpg"
+        };
 
-        // Launch the app with the demo image
+        // Generate procedural abstract art for each file
+        for (int i = 0; i < filenames.length; i++) {
+            final File imageFile = new File(tempDir.toFile(), filenames[i]);
+            TestImageGenerator.generateAbstractArt(i * 1000 + 42, imageFile);
+        }
+
+        // Launch the app with the third image (index 2)
+        final File demoImage = new File(tempDir.toFile(), filenames[2]);
         final UndoManager undoManager = new UndoManager();
         final Window window = new Window();
 
-        final Scene scene = window.displayFile(primaryStage, demoImage, 1, 1, null, undoManager, null, null, null);
+        final Scene scene = window.displayFile(primaryStage, demoImage, 3, filenames.length, null, undoManager, null, null, null);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Winnow");
         primaryStage.setWidth(1200);
         primaryStage.setHeight(800);
         primaryStage.show();
+
+        // Set a partial selection rectangle to demonstrate cropping
+        // Select approximately 70% of the image, offset slightly from center
+        Platform.runLater(() -> {
+            final double imageWidth = window.imageCanvas.getWidth();
+            final double imageHeight = window.imageCanvas.getHeight();
+
+            final double selectionWidth = imageWidth * 0.7;
+            final double selectionHeight = imageHeight * 0.7;
+
+            final double left = imageWidth * 0.1;
+            final double top = imageHeight * 0.15;
+            final double right = left + selectionWidth;
+            final double bottom = top + selectionHeight;
+
+            window.imageCanvas.setSelectionRegion(left, top, right, bottom);
+        });
 
         // Wait for both windows to be fully rendered
         final CountDownLatch latch = new CountDownLatch(1);
@@ -156,7 +189,9 @@ public final class ScreenshotGenerator extends Application {
                 undoManager.cleanup();
             }
             if (tempDir != null) {
-                Files.walk(tempDir)
+                // Delete the gallery directory and its parent temp directory
+                final Path rootDir = tempDir.getParent();
+                Files.walk(rootDir)
                         .sorted((a, b) -> -a.compareTo(b))
                         .forEach(path -> {
                             try {

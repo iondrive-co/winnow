@@ -41,6 +41,7 @@ public class Main extends Application {
 
         try {
             config = new ConfigManager();
+            window.setConfigManager(config);
         } catch (IOException e) {
             System.err.println("Failed to load configuration: " + e.getMessage());
             config = null;

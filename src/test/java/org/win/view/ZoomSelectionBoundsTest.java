@@ -4,9 +4,11 @@ import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
+import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -19,6 +21,8 @@ public class ZoomSelectionBoundsTest {
 
     @BeforeClass
     public static void initToolkit() {
+        Assume.assumeFalse("Skipping JavaFX test in headless environment",
+            GraphicsEnvironment.isHeadless());
         new JFXPanel();
     }
 

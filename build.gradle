@@ -1,19 +1,25 @@
 plugins {
     id 'java'
     id 'application'
+    id 'idea'
     id 'org.openjfx.javafxplugin' version '0.1.0'
     id 'org.beryx.jlink' version '3.0.1'
 }
 
-version = '0.0.1'
+version = '0.2.0'
 
 repositories {
     mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
 
 application {
     mainClass = project.hasProperty('mainClass') ? project.getProperty('mainClass') : 'org.win.Main'
-    mainModule = 'winnow'
+    applicationDefaultJvmArgs = [
+        // Suppress harmless GTK/JavaFX interaction warnings on Linux
+        '-Dprism.verbose=false',
+        '-Djavafx.verbose=false'
+    ]
 }
 
 javafx {
@@ -69,12 +75,28 @@ dependencies {
     implementation 'net.imagej:ij:1.53v'
     implementation 'org.apache.commons:commons-lang3:3.18.0'
     implementation 'commons-io:commons-io:2.21.0'
+    implementation 'org.clojure:clojure:1.11.3'
+    implementation 'com.github.iondrive-co:classifile:0.3.0'
     testImplementation 'org.assertj:assertj-core:3.23.1'
     testImplementation 'junit:junit:4.13.2'
 }
 
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-Xlint:unchecked'
+}
+
+// Handle duplicate resources in jar
+tasks.withType(Jar) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Configure IntelliJ IDEA to use Gradle for builds
+idea {
+    module {
+        inheritOutputDirs = false
+        outputDir = file("$buildDir/classes/java/main")
+        testOutputDir = file("$buildDir/classes/java/test")
+    }
 }
 
 test {
