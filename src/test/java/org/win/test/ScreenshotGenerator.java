@@ -28,12 +28,19 @@ public final class ScreenshotGenerator extends Application {
     private static final String SCREENSHOT_FILENAME = "winnow-screenshot.png";
     private static Path tempDir;
     private static File screenshotOutput;
+    private static String version;
 
     public static void main(final String[] args) {
         if (args.length > 0) {
             screenshotOutput = new File(args[0]);
         } else {
             screenshotOutput = new File(SCREENSHOT_FILENAME);
+        }
+
+        if (args.length > 1) {
+            version = args[1];
+        } else {
+            version = "0.0.0";
         }
 
         launch(args);
@@ -60,7 +67,7 @@ public final class ScreenshotGenerator extends Application {
         // Generate procedural abstract art for each file
         for (int i = 0; i < filenames.length; i++) {
             final File imageFile = new File(tempDir.toFile(), filenames[i]);
-            TestImageGenerator.generateAbstractArt(i * 1000 + 42, imageFile);
+            TestImageGenerator.generateAbstractArt(i * 1000 + 42, imageFile, version);
         }
 
         // Launch the app with the third image (index 2)
@@ -75,21 +82,36 @@ public final class ScreenshotGenerator extends Application {
         primaryStage.setHeight(800);
         primaryStage.show();
 
-        // Set a partial selection rectangle to demonstrate cropping
-        // Select approximately 70% of the image, offset slightly from center
+        // Apply rotation and selection, then reposition control window
         Platform.runLater(() -> {
-            final double imageWidth = window.imageCanvas.getWidth();
-            final double imageHeight = window.imageCanvas.getHeight();
+            // Apply a small rotation to show the feature in action
+            window.imageCanvas.rotateImage(15);
 
-            final double selectionWidth = imageWidth * 0.7;
-            final double selectionHeight = imageHeight * 0.7;
+            Platform.runLater(() -> {
+                // Set a partial selection rectangle to demonstrate cropping
+                final double imageWidth = window.imageCanvas.getWidth();
+                final double imageHeight = window.imageCanvas.getHeight();
 
-            final double left = imageWidth * 0.1;
-            final double top = imageHeight * 0.15;
-            final double right = left + selectionWidth;
-            final double bottom = top + selectionHeight;
+                final double selectionWidth = imageWidth * 0.7;
+                final double selectionHeight = imageHeight * 0.7;
 
-            window.imageCanvas.setSelectionRegion(left, top, right, bottom);
+                final double left = imageWidth * 0.1;
+                final double top = imageHeight * 0.15;
+                final double right = left + selectionWidth;
+                final double bottom = top + selectionHeight;
+
+                window.imageCanvas.setSelectionRegion(left, top, right, bottom);
+
+                Platform.runLater(() -> {
+                    // Reposition control window after rotation changes image size
+                    window.repositionControlWindow();
+
+                    Platform.runLater(() -> {
+                        // Give positioning time to take effect
+                        window.repositionControlWindow();
+                    });
+                });
+            });
         });
 
         // Wait for both windows to be fully rendered
@@ -97,9 +119,10 @@ public final class ScreenshotGenerator extends Application {
         Platform.runLater(() -> {
             Platform.runLater(() -> {
                 Platform.runLater(() -> {
-                    try {
-                        // Additional delay to ensure control window is positioned and rendered
-                        Thread.sleep(1500);
+                    Platform.runLater(() -> {
+                        try {
+                            // Additional delay to ensure control window is positioned and rendered
+                            Thread.sleep(1500);
 
                         // Take screenshot by combining both window snapshots
                         takeScreenshot(window);
@@ -117,7 +140,8 @@ public final class ScreenshotGenerator extends Application {
                         cleanup(undoManager);
                         Platform.exit();
                         latch.countDown();
-                    }
+                        }
+                    });
                 });
             });
         });
@@ -170,8 +194,9 @@ public final class ScreenshotGenerator extends Application {
             // Draw image window at top
             g2d.drawImage(imageBuffer, 0, 0, null);
 
-            // Draw control window below image window
-            g2d.drawImage(controlBuffer, 0, imageBuffer.getHeight(), null);
+            // Center control window horizontally beneath image window
+            final int controlX = (imageBuffer.getWidth() - controlBuffer.getWidth()) / 2;
+            g2d.drawImage(controlBuffer, controlX, imageBuffer.getHeight(), null);
 
             g2d.dispose();
         } else {

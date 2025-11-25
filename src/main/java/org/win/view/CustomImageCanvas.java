@@ -238,8 +238,10 @@ public class CustomImageCanvas extends Canvas {
     }
 
     private void handleMousePressed(MouseEvent event) {
-        double x = event.getX();
-        double y = event.getY();
+        // Convert from screen coordinates to canvas coordinates
+        final double scale = getScaleX();
+        double x = event.getX() / scale;
+        double y = event.getY() / scale;
         prevX = x;
         prevY = y;
         selectedCorner = getSelectedCorner(x, y);
@@ -267,8 +269,10 @@ public class CustomImageCanvas extends Canvas {
 
     private void handleMouseDragged(MouseEvent event) {
         if (dragging) {
-            double x = event.getX();
-            double y = event.getY();
+            // Convert from screen coordinates to canvas coordinates
+            final double scale = getScaleX();
+            double x = event.getX() / scale;
+            double y = event.getY() / scale;
             double dx = x - prevX;
             double dy = y - prevY;
 
@@ -321,7 +325,9 @@ public class CustomImageCanvas extends Canvas {
         } else if (onNavigationDrag != null && (event.isControlDown() || event.isSynthesized())) {
             // Not dragging a handle - trigger navigation
             // Only allow if Ctrl is held (mouse) OR event is synthesized (touch)
-            onNavigationDrag.accept(event.getX());
+            // Convert from screen coordinates to canvas coordinates
+            final double scale = getScaleX();
+            onNavigationDrag.accept(event.getX() / scale);
         }
     }
 
@@ -467,6 +473,14 @@ public class CustomImageCanvas extends Canvas {
 
     public int getSelectionHeight() {
         return (int) Math.round(selectionBottomRightY - selectionTopLeftY);
+    }
+
+    public double getSelectionLeft() {
+        return selectionTopLeftX;
+    }
+
+    public double getSelectionTop() {
+        return selectionTopLeftY;
     }
 
     public int getVisibleSelectionWidth() {

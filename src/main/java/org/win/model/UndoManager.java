@@ -12,6 +12,7 @@ import java.util.UUID;
 public class UndoManager {
     private final LinkedList<UndoOperation> undoQueue;
     private final Path tempDirectory;
+    private long backupCounter = 0;
 
     public UndoManager() throws IOException {
         this.undoQueue = new LinkedList<>();
@@ -28,15 +29,14 @@ public class UndoManager {
         }));
     }
 
-    public void saveStateBeforeOperation(File originalFile) throws IOException {
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String backupFilename = timestamp + "-" + originalFile.getName();
-        Path backupPath = tempDirectory.resolve(backupFilename);
+    public void saveStateBeforeOperation(final File originalFile) throws IOException {
+        final String backupFilename = System.currentTimeMillis() + "-" + (backupCounter++) + "-" + originalFile.getName();
+        final Path backupPath = tempDirectory.resolve(backupFilename);
 
         // Copy the original file byte-for-byte to preserve quality and metadata
         Files.copy(originalFile.toPath(), backupPath, StandardCopyOption.REPLACE_EXISTING);
 
-        UndoOperation operation = new UndoOperation(originalFile, backupPath.toFile());
+        final UndoOperation operation = new UndoOperation(originalFile, backupPath.toFile());
         undoQueue.addFirst(operation);
     }
 

@@ -6,7 +6,7 @@ plugins {
     id 'org.beryx.jlink' version '3.0.1'
 }
 
-version = '0.2.0'
+version = '0.3.0'
 
 repositories {
     mavenCentral()
@@ -102,6 +102,13 @@ idea {
 test {
     maxParallelForks = 1
     forkEvery = 1  // Fork a new JVM for each test class to prevent JavaFX thread exhaustion
+
+    // JVM args - suppress warnings in all environments
+    jvmArgs = [
+        '-Dprism.verbose=false',
+        '-Djavafx.verbose=false'
+    ]
+
     testLogging {
         events "failed"
         exceptionFormat "full"
@@ -124,7 +131,7 @@ tasks.register('generateScreenshot', JavaExec) {
     ]
 
     def screenshotFile = file("${projectDir}/docs/winnow-screenshot.png")
-    args screenshotFile.absolutePath
+    args screenshotFile.absolutePath, project.version
 
     doFirst {
         // Ensure docs directory exists

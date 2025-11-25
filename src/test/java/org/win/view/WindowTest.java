@@ -266,4 +266,164 @@ public class WindowTest {
 
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
     }
+
+    @Test
+    public void testEditableSelectionDimensions_updatesSelectionWithFixedTopLeft() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                // Get initial selection position
+                final double initialLeft = window.imageCanvas.getSelectionLeft();
+                final double initialTop = window.imageCanvas.getSelectionTop();
+                final int initialWidth = window.imageCanvas.getSelectionWidth();
+                final int initialHeight = window.imageCanvas.getSelectionHeight();
+
+                // Set a smaller selection first
+                window.imageCanvas.setSelectionRegion(50, 60, 250, 310);
+
+                final double left = window.imageCanvas.getSelectionLeft();
+                final double top = window.imageCanvas.getSelectionTop();
+
+                // Simulate user editing the dimension field
+                window.setSelectionDimensionsFromText("150 x 180");
+
+                // Verify the selection dimensions changed
+                assertThat(window.imageCanvas.getSelectionWidth()).isEqualTo(150);
+                assertThat(window.imageCanvas.getSelectionHeight()).isEqualTo(180);
+
+                // Verify the top-left corner stayed fixed
+                assertThat(window.imageCanvas.getSelectionLeft()).isEqualTo(left);
+                assertThat(window.imageCanvas.getSelectionTop()).isEqualTo(top);
+
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testEditableSelectionDimensions_limitsToImageBounds() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                final int imageWidth = window.imageCanvas.getImageWidth();
+                final int imageHeight = window.imageCanvas.getImageHeight();
+
+                // Set selection near bottom-right corner
+                window.imageCanvas.setSelectionRegion(imageWidth - 100, imageHeight - 100, imageWidth, imageHeight);
+
+                // Try to set dimensions that would exceed image bounds
+                window.setSelectionDimensionsFromText("500 x 500");
+
+                // Verify dimensions were limited to image bounds
+                assertThat(window.imageCanvas.getSelectionWidth()).isLessThanOrEqualTo(100);
+                assertThat(window.imageCanvas.getSelectionHeight()).isLessThanOrEqualTo(100);
+
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testEditableSelectionDimensions_handlesInvalidInput() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                final int originalWidth = window.imageCanvas.getSelectionWidth();
+                final int originalHeight = window.imageCanvas.getSelectionHeight();
+
+                // Try various invalid inputs
+                window.setSelectionDimensionsFromText("invalid");
+
+                // Verify dimensions unchanged
+                assertThat(window.imageCanvas.getSelectionWidth()).isEqualTo(originalWidth);
+                assertThat(window.imageCanvas.getSelectionHeight()).isEqualTo(originalHeight);
+
+                // Try negative dimensions
+                window.setSelectionDimensionsFromText("-100 x -200");
+
+                assertThat(window.imageCanvas.getSelectionWidth()).isEqualTo(originalWidth);
+                assertThat(window.imageCanvas.getSelectionHeight()).isEqualTo(originalHeight);
+
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testEditableSelectionDimensions_noNegativeValuesWhenZoomed() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                // Set selection
+                window.imageCanvas.setSelectionRegion(50, 60, 250, 310);
+
+                // Get the displayed dimensions before editing
+                final String displayedBefore = window.getSelectionDimensionText();
+
+                // Verify no negative dimensions are displayed
+                assertThat(displayedBefore).doesNotContain("-");
+
+                // Start editing by typing a partial value
+                window.setSelectionDimensionsFromText("5");
+
+                // Verify the field doesn't show negative values
+                final String duringEdit = window.getSelectionDimensionText();
+                assertThat(duringEdit).doesNotContain("-");
+
+                // Complete the edit with valid dimensions
+                window.setSelectionDimensionsFromText("100 x 120");
+
+                // Verify dimensions updated correctly
+                assertThat(window.imageCanvas.getSelectionWidth()).isEqualTo(100);
+                assertThat(window.imageCanvas.getSelectionHeight()).isEqualTo(120);
+
+                // Verify displayed dimensions don't contain negative values
+                final String displayedAfter = window.getSelectionDimensionText();
+                assertThat(displayedAfter).doesNotContain("-");
+                assertThat(displayedAfter).isEqualTo("100 x 120");
+
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
 }

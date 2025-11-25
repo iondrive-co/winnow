@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -228,7 +229,7 @@ public final class PredictiveFilenameEditorTest {
             latch.countDown();
         });
 
-        latch.await();
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
 
         final PredictiveFilenameEditor editor = editorHolder[0];
         final String reconstructed = editor.getFilename();

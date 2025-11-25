@@ -1,5 +1,7 @@
 /.gradle/
-/.idea/
+/.idea/*.xml
+/.idea/.gitignore
+/.idea/shelf
 /build/
 /out/production/
 /out/

@@ -265,10 +265,11 @@ public final class TestImageGenerator {
      *
      * @param seed Seed for random generation (for reproducibility)
      * @param outputFile Target file to save the image
+     * @param version Version string to display (e.g., "0.2.0")
      * @return The created file
      * @throws IOException If image creation fails
      */
-    public static File generateAbstractArt(final int seed, final File outputFile) throws IOException {
+    public static File generateAbstractArt(final int seed, final File outputFile, final String version) throws IOException {
         final int width = 1200;
         final int height = 800;
 
@@ -277,6 +278,7 @@ public final class TestImageGenerator {
 
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
         final Random rand = new Random(seed);
         final int artStyle = rand.nextInt(5);
@@ -299,9 +301,60 @@ public final class TestImageGenerator {
                 break;
         }
 
+        // Add centered text overlay with "winnow" and version
+        addTextOverlay(g2d, width, height, version);
+
         g2d.dispose();
         ImageIO.write(image, "jpg", outputFile);
         return outputFile;
+    }
+
+    private static void addTextOverlay(final Graphics2D g2d, final int width, final int height, final String version) {
+        final String appName = "winnow";
+        final String versionText = "v" + version;
+
+        // Calculate text dimensions
+        final Font nameFont = new Font("Arial", Font.BOLD, 120);
+        final Font versionFont = new Font("Arial", Font.PLAIN, 48);
+
+        g2d.setFont(nameFont);
+        final FontMetrics nameFm = g2d.getFontMetrics();
+        final int nameWidth = nameFm.stringWidth(appName);
+        final int nameHeight = nameFm.getHeight();
+
+        g2d.setFont(versionFont);
+        final FontMetrics versionFm = g2d.getFontMetrics();
+        final int versionWidth = versionFm.stringWidth(versionText);
+        final int versionHeight = versionFm.getHeight();
+
+        // Calculate overlay dimensions
+        final int overlayWidth = Math.max(nameWidth, versionWidth) + 80;
+        final int overlayHeight = nameHeight + versionHeight + 60;
+        final int overlayX = (width - overlayWidth) / 2;
+        final int overlayY = (height - overlayHeight) / 2;
+
+        // Draw semi-transparent background rectangle
+        g2d.setColor(new Color(0, 0, 0, 180));
+        g2d.fillRoundRect(overlayX, overlayY, overlayWidth, overlayHeight, 20, 20);
+
+        // Draw border
+        g2d.setColor(new Color(255, 255, 255, 100));
+        g2d.setStroke(new BasicStroke(3));
+        g2d.drawRoundRect(overlayX, overlayY, overlayWidth, overlayHeight, 20, 20);
+
+        // Draw app name
+        g2d.setFont(nameFont);
+        g2d.setColor(new Color(255, 255, 255, 255));
+        final int nameX = (width - nameWidth) / 2;
+        final int nameY = overlayY + (overlayHeight - versionHeight) / 2;
+        g2d.drawString(appName, nameX, nameY);
+
+        // Draw version
+        g2d.setFont(versionFont);
+        g2d.setColor(new Color(220, 220, 220, 230));
+        final int versionX = (width - versionWidth) / 2;
+        final int versionY = nameY + nameHeight - 10;
+        g2d.drawString(versionText, versionX, versionY);
     }
 
     private static void generateFlowingCurves(final Graphics2D g2d, final int width, final int height, final Random rand) {

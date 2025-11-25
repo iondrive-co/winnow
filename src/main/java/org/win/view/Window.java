@@ -38,10 +38,11 @@ public class Window {
     private Stage controlStage;
     private Stage imageStage;
     private Label imageDimensionLabel;
-    private Label selectionDimensionLabel;
+    private TextField selectionDimensionField;
     private Label directoryLabel;
     private Runnable onDirectoryChange;
     private org.win.ConfigManager configManager;
+    private boolean updatingDimensionDisplay = false;
 
     public void setConfigManager(final org.win.ConfigManager configManager) {
         this.configManager = configManager;
@@ -431,26 +432,33 @@ public class Window {
             return;
         }
 
-        // Ensure both stages are sized to their scenes (only if they have valid sizes)
-        if (imageStage.getScene() != null && imageStage.getScene().getWidth() > 0 && imageStage.getScene().getHeight() > 0 && imageStage.getWidth() > 0 && imageStage.getHeight() > 0) {
-            imageStage.sizeToScene();
-        }
+        // Only size control stage to its scene, not image stage
+        // (imageStage.sizeToScene() would resize window to fit rotated content, which we don't want)
         if (controlStage.getScene() != null && controlStage.getScene().getWidth() > 0 && controlStage.getScene().getHeight() > 0 && controlStage.getWidth() > 0 && controlStage.getHeight() > 0) {
             controlStage.sizeToScene();
         }
 
         double imageX = imageStage.getX();
         double imageY = imageStage.getY();
+        double imageWidth = imageStage.getWidth();
         double imageHeight = imageStage.getHeight();
+        double controlWidth = controlStage.getWidth();
         double controlHeight = controlStage.getHeight();
 
         // Don't position if dimensions are invalid
-        if (imageHeight <= 0 || controlHeight <= 0) {
+        if (imageHeight <= 0 || controlHeight <= 0 || imageWidth <= 0 || controlWidth <= 0) {
             return;
         }
 
         // Get screen bounds
         Rectangle2D screenBounds = Screen.getPrimary().getVisualBounds();
+
+        // Center control window horizontally beneath image window
+        double centeredX = imageX + (imageWidth - controlWidth) / 2;
+
+        // Ensure control window doesn't go off left or right edge of screen
+        centeredX = Math.max(screenBounds.getMinX(), centeredX);
+        centeredX = Math.min(screenBounds.getMaxX() - controlWidth, centeredX);
 
         // Position below image window (at the bottom of the image window)
         double targetY = imageY + imageHeight;
@@ -461,7 +469,7 @@ public class Window {
             targetY = screenBounds.getMaxY() - controlHeight;
         }
 
-        controlStage.setX(imageX);
+        controlStage.setX(centeredX);
         controlStage.setY(targetY);
     }
 
@@ -521,13 +529,20 @@ public class Window {
         imageDimensionLabel = new Label();
         imageDimensionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: black;");
 
-        selectionDimensionLabel = new Label();
-        selectionDimensionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: blue;");
+        selectionDimensionField = new TextField();
+        selectionDimensionField.setStyle("-fx-font-size: 14px; -fx-text-fill: blue;");
+        selectionDimensionField.setPrefWidth(100);
+        selectionDimensionField.setMaxWidth(100);
+
+        // Handle real-time updates as user types
+        selectionDimensionField.textProperty().addListener((observable, oldValue, newValue) -> {
+            handleSelectionDimensionEdit();
+        });
 
         // Update labels with current values
         updateDimensionDisplay();
 
-        VBox dimensionBox = new VBox(imageDimensionLabel, selectionDimensionLabel);
+        VBox dimensionBox = new VBox(imageDimensionLabel, selectionDimensionField);
         dimensionBox.setAlignment(Pos.CENTER_LEFT);
         dimensionBox.setSpacing(2);
 
@@ -535,14 +550,98 @@ public class Window {
     }
 
     private void updateDimensionDisplay() {
-        if (imageCanvas != null && imageDimensionLabel != null && selectionDimensionLabel != null) {
+        if (imageCanvas != null && imageDimensionLabel != null && selectionDimensionField != null) {
             final int imageWidth = imageCanvas.getImageWidth();
             final int imageHeight = imageCanvas.getImageHeight();
-            final int selectionWidth = imageCanvas.getVisibleSelectionWidth();
-            final int selectionHeight = imageCanvas.getVisibleSelectionHeight();
+
+            // Try to show visible selection dimensions (for zoom feedback)
+            // But fall back to actual dimensions if visible would be <= 0
+            final int visibleWidth = imageCanvas.getVisibleSelectionWidth();
+            final int visibleHeight = imageCanvas.getVisibleSelectionHeight();
+
+            final int displayWidth;
+            final int displayHeight;
+            if (visibleWidth > 0 && visibleHeight > 0) {
+                // Show visible selection (provides zoom feedback)
+                displayWidth = visibleWidth;
+                displayHeight = visibleHeight;
+            } else {
+                // Fall back to actual selection when zoomed too far
+                displayWidth = imageCanvas.getSelectionWidth();
+                displayHeight = imageCanvas.getSelectionHeight();
+            }
 
             imageDimensionLabel.setText(imageWidth + " x " + imageHeight);
-            selectionDimensionLabel.setText(selectionWidth + " x " + selectionHeight);
+
+            // Don't update the field if user is actively editing it (has focus)
+            // This prevents IllegalArgumentException when updating during typing
+            if (!selectionDimensionField.isFocused()) {
+                // Prevent infinite recursion when updating the text field
+                updatingDimensionDisplay = true;
+                selectionDimensionField.setText(displayWidth + " x " + displayHeight);
+                updatingDimensionDisplay = false;
+            }
+        }
+    }
+
+    // Package-private methods for testing
+    void setSelectionDimensionsFromText(final String dimensionText) {
+        if (selectionDimensionField != null) {
+            selectionDimensionField.setText(dimensionText);
+            handleSelectionDimensionEdit();
+        }
+    }
+
+    String getSelectionDimensionText() {
+        return selectionDimensionField != null ? selectionDimensionField.getText() : "";
+    }
+
+    public void repositionControlWindow() {
+        positionControlWindow();
+    }
+
+    private void handleSelectionDimensionEdit() {
+        // Prevent infinite recursion
+        if (imageCanvas == null || updatingDimensionDisplay) {
+            return;
+        }
+
+        final String input = selectionDimensionField.getText().trim();
+
+        // Parse the input (format: "width x height" or "width×height")
+        final String[] parts = input.split("[xX×]");
+        if (parts.length != 2) {
+            // Invalid format - do nothing, let the user continue editing
+            return;
+        }
+
+        try {
+            final int newWidth = Integer.parseInt(parts[0].trim());
+            final int newHeight = Integer.parseInt(parts[1].trim());
+
+            // Validate dimensions are positive
+            if (newWidth <= 0 || newHeight <= 0) {
+                return;
+            }
+
+            // Get current selection top-left corner
+            final double left = imageCanvas.getSelectionLeft();
+            final double top = imageCanvas.getSelectionTop();
+
+            // Calculate new bottom-right corner (keeping top-left fixed)
+            double newRight = left + newWidth;
+            double newBottom = top + newHeight;
+
+            // Limit to image bounds
+            final int imageWidth = imageCanvas.getImageWidth();
+            final int imageHeight = imageCanvas.getImageHeight();
+            newRight = Math.min(newRight, imageWidth);
+            newBottom = Math.min(newBottom, imageHeight);
+
+            // Update the selection (this will automatically trigger a redraw and update the display)
+            imageCanvas.setSelectionRegion(left, top, newRight, newBottom);
+        } catch (final NumberFormatException e) {
+            // Invalid numbers - do nothing, let the user continue editing
         }
     }
 

@@ -31,6 +31,7 @@ When working with JavaFX Canvas:
 - **Canvas coordinates**: The underlying image/canvas coordinate system (e.g., 800x600 pixels in image)
 - **Screen coordinates**: What appears on screen after scale transform (e.g., 800 canvas px × 2x scale = 1600 screen px)
 - **GraphicsContext draws in canvas space**: When you call `gc.fillRect(100, 100, 200, 200)`, you're drawing in canvas coordinates. The scale transform (via `setScaleX/setScaleY`) converts this to screen space.
+- **Mouse events use screen coordinates**: When handling mouse events, convert to canvas coordinates by dividing by scale: `canvasX = event.getX() / getScaleX()`
 
 # JavaFX Testing Patterns
 
@@ -39,3 +40,40 @@ When writing tests that use JavaFX Platform.runLater():
 - **Use sequential Platform.runLater() with separate CountDownLatches** - Instead of nesting callbacks, use separate runLater calls with individual latches
 - **Use a waitForFXThread() helper** - Create a helper method that waits for the JavaFX thread to process all pending tasks
 - **Build configuration**: The test task in build.gradle uses `forkEvery = 1` to spawn a fresh JVM for each test class, preventing JavaFX thread exhaustion across test suites
+
+## Running Tests
+
+### Gradle (Recommended)
+```bash
+# Run all tests
+./gradlew test
+
+# Force re-run tests (ignore up-to-date checks)
+./gradlew test --rerun-tasks
+
+# Run specific test class
+./gradlew test --tests "*ZoomVisualVerificationTest"
+
+# Run with clean
+./gradlew clean test
+```
+
+### IntelliJ IDEA
+IntelliJ requires special configuration to match Gradle's fork behavior. Use one of these options:
+
+**Option 1: Use the pre-configured run configuration (Easiest)**
+- A run configuration "All Tests (fork per class)" is provided in `.idea/runConfigurations/`
+- Select it from the run configurations dropdown and run tests with it
+
+**Option 2: Manually configure test template**
+1. Run → Edit Configurations → Edit configuration templates → JUnit
+2. Set "Fork mode" to "class"
+3. This applies to all new test runs
+
+**Option 3: Run tests via Gradle in IntelliJ**
+- Use IntelliJ's Gradle tool window to run tests instead of JUnit runner
+- This uses Gradle's configuration automatically
+
+### GitHub Actions / CI
+- Linux builds use `xvfb-run` to provide a virtual display for JavaFX tests
+- See `.github/workflows/build-release.yml` for configuration

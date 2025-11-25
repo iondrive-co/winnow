@@ -25,11 +25,14 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
+    - name: Install Xvfb
+      run: sudo apt-get update && sudo apt-get install -y xvfb
+
     - name: Build with Gradle
-      run: ./gradlew build
+      run: xvfb-run --auto-servernum ./gradlew build
 
     - name: Run tests
-      run: ./gradlew test
+      run: xvfb-run --auto-servernum ./gradlew test
 
     - name: Create runtime image
       run: ./gradlew jlink
