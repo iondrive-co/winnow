@@ -48,20 +48,21 @@ public final class ScreenshotGenerator extends Application {
 
     @Override
     public void start(final Stage primaryStage) throws Exception {
-        // Create temp directory with realistic name
+        // Create temp directory with short name to avoid scrollbar in control window
         final Path baseTempDir = Files.createTempDirectory("winnow-demo");
-        tempDir = baseTempDir.resolve("abstract-art-gallery-2024");
+        tempDir = baseTempDir.resolve("photos");
         Files.createDirectories(tempDir);
 
-        // Generate multiple abstract art images with realistic filenames
+        // Generate multiple images with SHORT filenames to avoid horizontal scrollbar
+        // in the predictive filename editor
         final String[] filenames = {
-            "1.abstract-001.jpg",
-            "2.abstract-002.jpg",
-            "3.abstract-003.jpg",
-            "4.abstract-004.jpg",
-            "5.abstract-005.jpg",
-            "6.abstract-006.jpg",
-            "7.abstract-007.jpg"
+            "IMG_01.jpg",
+            "IMG_02.jpg",
+            "IMG_03.jpg",
+            "IMG_04.jpg",
+            "IMG_05.jpg",
+            "IMG_06.jpg",
+            "IMG_07.jpg"
         };
 
         // Generate procedural abstract art for each file

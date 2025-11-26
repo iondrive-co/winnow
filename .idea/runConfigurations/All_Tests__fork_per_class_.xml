@@ -1,14 +1,24 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All Tests (fork per class)" type="JUnit" factoryName="JUnit">
-    <module name="winnow.test" />
-    <option name="PACKAGE_NAME" value="" />
-    <option name="MAIN_CLASS_NAME" value="" />
-    <option name="METHOD_NAME" value="" />
-    <option name="TEST_OBJECT" value="package" />
-    <option name="PARAMETERS" value="" />
-    <option name="FORK_MODE" value="class" />
-    <method v="2">
-      <option name="Make" enabled="true" />
-    </method>
+  <configuration default="false" name="All Tests (fork per class)" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value="test" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <method v="2" />
   </configuration>
 </component>

@@ -38,7 +38,10 @@ public class Window {
     private Stage controlStage;
     private Stage imageStage;
     private Label imageDimensionLabel;
-    private TextField selectionDimensionField;
+    private TextField selectionOffsetXField;
+    private TextField selectionOffsetYField;
+    private TextField selectionWidthField;
+    private TextField selectionHeightField;
     private Label directoryLabel;
     private Runnable onDirectoryChange;
     private org.win.ConfigManager configManager;
@@ -432,10 +435,15 @@ public class Window {
             return;
         }
 
-        // Only size control stage to its scene, not image stage
-        // (imageStage.sizeToScene() would resize window to fit rotated content, which we don't want)
-        if (controlStage.getScene() != null && controlStage.getScene().getWidth() > 0 && controlStage.getScene().getHeight() > 0 && controlStage.getWidth() > 0 && controlStage.getHeight() > 0) {
-            controlStage.sizeToScene();
+        // Only size control stage to its scene if scene has valid dimensions
+        // This prevents Gtk-CRITICAL warnings about invalid window sizes
+        if (controlStage.getScene() != null) {
+            final double sceneWidth = controlStage.getScene().getWidth();
+            final double sceneHeight = controlStage.getScene().getHeight();
+            // Only resize if scene has valid dimensions (> 1 to avoid Gtk warnings)
+            if (sceneWidth > 1 && sceneHeight > 1) {
+                controlStage.sizeToScene();
+            }
         }
 
         double imageX = imageStage.getX();
@@ -453,21 +461,31 @@ public class Window {
         // Get screen bounds
         Rectangle2D screenBounds = Screen.getPrimary().getVisualBounds();
 
+        // Calculate the visible bottom of the image stage
+        // For normal-sized images, this is imageY + imageHeight
+        // For large images that extend off-screen, we need to find where the stage is actually visible
+        double imageVisibleTop = Math.max(imageY, screenBounds.getMinY());
+        double imageVisibleBottom = Math.min(imageY + imageHeight, screenBounds.getMaxY());
+
+        // Position control window just below the visible image area
+        double targetY = imageVisibleBottom;
+
+        // Ensure control window fits on screen (move up if needed)
+        if (targetY + controlHeight > screenBounds.getMaxY()) {
+            targetY = screenBounds.getMaxY() - controlHeight;
+        }
+
+        // If control window would be above the image, position it at the bottom of screen
+        if (targetY < imageVisibleTop) {
+            targetY = screenBounds.getMaxY() - controlHeight;
+        }
+
         // Center control window horizontally beneath image window
         double centeredX = imageX + (imageWidth - controlWidth) / 2;
 
         // Ensure control window doesn't go off left or right edge of screen
         centeredX = Math.max(screenBounds.getMinX(), centeredX);
         centeredX = Math.min(screenBounds.getMaxX() - controlWidth, centeredX);
-
-        // Position below image window (at the bottom of the image window)
-        double targetY = imageY + imageHeight;
-
-        // Check if control window would go off bottom of screen
-        if (targetY + controlHeight > screenBounds.getMaxY()) {
-            // Position as low as possible while keeping full window visible
-            targetY = screenBounds.getMaxY() - controlHeight;
-        }
 
         controlStage.setX(centeredX);
         controlStage.setY(targetY);
@@ -525,34 +543,83 @@ public class Window {
     }
 
     private VBox createDimensionDisplay() {
-        // Create labels for image and selection dimensions
+        // Create label for image dimensions
         imageDimensionLabel = new Label();
         imageDimensionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: black;");
 
-        selectionDimensionField = new TextField();
-        selectionDimensionField.setStyle("-fx-font-size: 14px; -fx-text-fill: blue;");
-        selectionDimensionField.setPrefWidth(100);
-        selectionDimensionField.setMaxWidth(100);
+        // Create offset fields (X, Y)
+        selectionOffsetXField = new TextField();
+        selectionOffsetXField.setStyle("-fx-font-size: 14px; -fx-text-fill: green;");
+        selectionOffsetXField.setPrefWidth(50);
+        selectionOffsetXField.setMaxWidth(50);
+
+        selectionOffsetYField = new TextField();
+        selectionOffsetYField.setStyle("-fx-font-size: 14px; -fx-text-fill: green;");
+        selectionOffsetYField.setPrefWidth(50);
+        selectionOffsetYField.setMaxWidth(50);
+
+        final Label offsetCommaLabel = new Label(",");
+        offsetCommaLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: green;");
 
         // Handle real-time updates as user types
-        selectionDimensionField.textProperty().addListener((observable, oldValue, newValue) -> {
+        selectionOffsetXField.textProperty().addListener((observable, oldValue, newValue) -> {
+            handleSelectionOffsetEdit();
+        });
+        selectionOffsetYField.textProperty().addListener((observable, oldValue, newValue) -> {
+            handleSelectionOffsetEdit();
+        });
+
+        final HBox offsetBox = new HBox(selectionOffsetXField, offsetCommaLabel, selectionOffsetYField);
+        offsetBox.setAlignment(Pos.CENTER_LEFT);
+        offsetBox.setSpacing(2);
+
+        // Create dimension fields (Width x Height)
+        selectionWidthField = new TextField();
+        selectionWidthField.setStyle("-fx-font-size: 14px; -fx-text-fill: blue;");
+        selectionWidthField.setPrefWidth(50);
+        selectionWidthField.setMaxWidth(50);
+
+        selectionHeightField = new TextField();
+        selectionHeightField.setStyle("-fx-font-size: 14px; -fx-text-fill: blue;");
+        selectionHeightField.setPrefWidth(50);
+        selectionHeightField.setMaxWidth(50);
+
+        final Label dimensionXLabel = new Label("x");
+        dimensionXLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: blue;");
+
+        // Handle real-time updates as user types
+        selectionWidthField.textProperty().addListener((observable, oldValue, newValue) -> {
+            handleSelectionDimensionEdit();
+        });
+        selectionHeightField.textProperty().addListener((observable, oldValue, newValue) -> {
             handleSelectionDimensionEdit();
         });
 
-        // Update labels with current values
-        updateDimensionDisplay();
-
-        VBox dimensionBox = new VBox(imageDimensionLabel, selectionDimensionField);
+        final HBox dimensionBox = new HBox(selectionWidthField, dimensionXLabel, selectionHeightField);
         dimensionBox.setAlignment(Pos.CENTER_LEFT);
         dimensionBox.setSpacing(2);
 
-        return dimensionBox;
+        // Update fields with current values
+        updateDimensionDisplay();
+
+        final VBox container = new VBox(imageDimensionLabel, offsetBox, dimensionBox);
+        container.setAlignment(Pos.CENTER_LEFT);
+        container.setSpacing(2);
+
+        return container;
     }
 
     private void updateDimensionDisplay() {
-        if (imageCanvas != null && imageDimensionLabel != null && selectionDimensionField != null) {
+        if (imageCanvas != null && imageDimensionLabel != null &&
+            selectionOffsetXField != null && selectionOffsetYField != null &&
+            selectionWidthField != null && selectionHeightField != null) {
+
             final int imageWidth = imageCanvas.getImageWidth();
             final int imageHeight = imageCanvas.getImageHeight();
+
+            // Get selection offset
+            final int offsetX = (int) Math.round(imageCanvas.getSelectionLeft());
+            final int offsetY = (int) Math.round(imageCanvas.getSelectionTop());
 
             // Try to show visible selection dimensions (for zoom feedback)
             // But fall back to actual dimensions if visible would be <= 0
@@ -573,31 +640,119 @@ public class Window {
 
             imageDimensionLabel.setText(imageWidth + " x " + imageHeight);
 
-            // Don't update the field if user is actively editing it (has focus)
+            // Don't update the fields if user is actively editing them (has focus)
             // This prevents IllegalArgumentException when updating during typing
-            if (!selectionDimensionField.isFocused()) {
-                // Prevent infinite recursion when updating the text field
+            if (!selectionOffsetXField.isFocused() && !selectionOffsetYField.isFocused()) {
+                // Prevent infinite recursion when updating the text fields
                 updatingDimensionDisplay = true;
-                selectionDimensionField.setText(displayWidth + " x " + displayHeight);
+                selectionOffsetXField.setText(String.valueOf(offsetX));
+                selectionOffsetYField.setText(String.valueOf(offsetY));
+                updatingDimensionDisplay = false;
+            }
+
+            if (!selectionWidthField.isFocused() && !selectionHeightField.isFocused()) {
+                // Prevent infinite recursion when updating the text fields
+                updatingDimensionDisplay = true;
+                selectionWidthField.setText(String.valueOf(displayWidth));
+                selectionHeightField.setText(String.valueOf(displayHeight));
                 updatingDimensionDisplay = false;
             }
         }
     }
 
-    // Package-private methods for testing
-    void setSelectionDimensionsFromText(final String dimensionText) {
-        if (selectionDimensionField != null) {
-            selectionDimensionField.setText(dimensionText);
-            handleSelectionDimensionEdit();
+    // Public methods for testing
+    public void setSelectionOffsetFromText(final String offsetText) {
+        if (selectionOffsetXField != null && selectionOffsetYField != null) {
+            final String[] parts = offsetText.split(",");
+            if (parts.length == 2) {
+                selectionOffsetXField.setText(parts[0].trim());
+                selectionOffsetYField.setText(parts[1].trim());
+                handleSelectionOffsetEdit();
+            }
         }
     }
 
-    String getSelectionDimensionText() {
-        return selectionDimensionField != null ? selectionDimensionField.getText() : "";
+    public String getSelectionOffsetText() {
+        if (selectionOffsetXField != null && selectionOffsetYField != null) {
+            return selectionOffsetXField.getText() + ", " + selectionOffsetYField.getText();
+        }
+        return "";
+    }
+
+    public void setSelectionDimensionsFromText(final String dimensionText) {
+        if (selectionWidthField != null && selectionHeightField != null) {
+            final String[] parts = dimensionText.split("[xX×]");
+            if (parts.length == 2) {
+                selectionWidthField.setText(parts[0].trim());
+                selectionHeightField.setText(parts[1].trim());
+                handleSelectionDimensionEdit();
+            }
+        }
+    }
+
+    public String getSelectionDimensionText() {
+        if (selectionWidthField != null && selectionHeightField != null) {
+            return selectionWidthField.getText() + " x " + selectionHeightField.getText();
+        }
+        return "";
     }
 
     public void repositionControlWindow() {
         positionControlWindow();
+    }
+
+    private void handleSelectionOffsetEdit() {
+        // Prevent infinite recursion
+        if (imageCanvas == null || updatingDimensionDisplay) {
+            return;
+        }
+
+        final String xText = selectionOffsetXField.getText().trim();
+        final String yText = selectionOffsetYField.getText().trim();
+
+        // Check if fields are empty
+        if (xText.isEmpty() || yText.isEmpty()) {
+            return;
+        }
+
+        try {
+            int newX = Integer.parseInt(xText);
+            int newY = Integer.parseInt(yText);
+
+            // Validate offset is not negative
+            if (newX < 0 || newY < 0) {
+                return;
+            }
+
+            // Get current selection dimensions
+            int currentWidth = imageCanvas.getSelectionWidth();
+            int currentHeight = imageCanvas.getSelectionHeight();
+
+            final int imageWidth = imageCanvas.getImageWidth();
+            final int imageHeight = imageCanvas.getImageHeight();
+
+            // Clamp offset to image bounds
+            newX = Math.min(newX, imageWidth - 1);
+            newY = Math.min(newY, imageHeight - 1);
+
+            // Smart shrinking: if selection would go outside bounds, shrink it to fit
+            // This handles the case where user changes offset from 0,0 on a full-image selection
+            if (newX + currentWidth > imageWidth) {
+                currentWidth = imageWidth - newX;
+            }
+            if (newY + currentHeight > imageHeight) {
+                currentHeight = imageHeight - newY;
+            }
+
+            // Ensure we have at least 1x1 selection
+            currentWidth = Math.max(1, currentWidth);
+            currentHeight = Math.max(1, currentHeight);
+
+            // Update the selection (this will automatically trigger a redraw and update the display)
+            imageCanvas.setSelectionRegion(newX, newY, newX + currentWidth, newY + currentHeight);
+        } catch (final NumberFormatException e) {
+            // Invalid numbers - do nothing, let the user continue editing
+        }
     }
 
     private void handleSelectionDimensionEdit() {
@@ -606,18 +761,17 @@ public class Window {
             return;
         }
 
-        final String input = selectionDimensionField.getText().trim();
+        final String widthText = selectionWidthField.getText().trim();
+        final String heightText = selectionHeightField.getText().trim();
 
-        // Parse the input (format: "width x height" or "width×height")
-        final String[] parts = input.split("[xX×]");
-        if (parts.length != 2) {
-            // Invalid format - do nothing, let the user continue editing
+        // Check if fields are empty
+        if (widthText.isEmpty() || heightText.isEmpty()) {
             return;
         }
 
         try {
-            final int newWidth = Integer.parseInt(parts[0].trim());
-            final int newHeight = Integer.parseInt(parts[1].trim());
+            final int newWidth = Integer.parseInt(widthText);
+            final int newHeight = Integer.parseInt(heightText);
 
             // Validate dimensions are positive
             if (newWidth <= 0 || newHeight <= 0) {

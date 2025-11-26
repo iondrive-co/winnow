@@ -29,6 +29,53 @@ public final class TestImageGenerator {
     };
 
     /**
+     * Generates a synthetic test image with custom dimensions.
+     *
+     * @param imageIndex Index for color pattern (0-9)
+     * @param outputFile Target file to save the image
+     * @param width Image width in pixels
+     * @param height Image height in pixels
+     * @return The created file
+     * @throws IOException If image creation fails
+     */
+    public static File generateTestImage(final int imageIndex, final File outputFile, final int width, final int height) throws IOException {
+        final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final Graphics2D g2d = image.createGraphics();
+
+        // Set rendering hints for quality
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        // Generate unique color based on index
+        final Color backgroundColor = generateColor(imageIndex);
+        g2d.setColor(backgroundColor);
+        g2d.fillRect(0, 0, width, height);
+
+        // Add some pattern/content
+        drawPattern(g2d, imageIndex, width, height);
+
+        // Add text overlay with image info
+        g2d.setColor(Color.WHITE);
+        final int fontSize = Math.max(20, Math.min(width, height) / 20);
+        g2d.setFont(new Font("Arial", Font.BOLD, fontSize));
+        final String text = "Test Image " + imageIndex;
+        final String sizeText = width + "x" + height;
+
+        final FontMetrics fm = g2d.getFontMetrics();
+        final int textWidth = fm.stringWidth(text);
+        final int textHeight = fm.getHeight();
+
+        g2d.drawString(text, (width - textWidth) / 2, height / 2 - textHeight / 2);
+        g2d.drawString(sizeText, (width - fm.stringWidth(sizeText)) / 2, height / 2 + textHeight / 2);
+
+        g2d.dispose();
+
+        // Save as JPEG
+        ImageIO.write(image, "jpg", outputFile);
+        return outputFile;
+    }
+
+    /**
      * Generates a synthetic test image with the specified index (0-9).
      * Each image has a unique size and color pattern.
      *

@@ -54,6 +54,19 @@ public class CustomImageCanvas extends Canvas {
         drawImage();
         drawROI();
 
+        // Redraw when scene is attached and has valid dimensions
+        // This ensures selection rectangle is visible on initial display
+        sceneProperty().addListener((observable, oldScene, newScene) -> {
+            if (newScene != null) {
+                // Wait for scene to have valid dimensions before redrawing
+                newScene.widthProperty().addListener((obs, oldWidth, newWidth) -> {
+                    if (newWidth.doubleValue() > 0 && newScene.getHeight() > 0) {
+                        javafx.application.Platform.runLater(this::redraw);
+                    }
+                });
+            }
+        });
+
         // Use addEventHandler instead of setOnMouseXxx to allow events to bubble to Scene
         addEventHandler(javafx.scene.input.MouseEvent.MOUSE_PRESSED, this::handleMousePressed);
         addEventHandler(javafx.scene.input.MouseEvent.MOUSE_DRAGGED, this::handleMouseDragged);
@@ -302,20 +315,38 @@ public class CustomImageCanvas extends Canvas {
                     selectionBottomRightY += dy;
                     break;
                 case MOVE_HANDLE:
-                    selectionTopLeftX += dx;
-                    selectionTopLeftY += dy;
-                    selectionBottomRightX += dx;
-                    selectionBottomRightY += dy;
+                    // Calculate selection width/height before moving
+                    final double selectionWidth = selectionBottomRightX - selectionTopLeftX;
+                    final double selectionHeight = selectionBottomRightY - selectionTopLeftY;
+
+                    // Calculate new position
+                    double newLeft = selectionTopLeftX + dx;
+                    double newTop = selectionTopLeftY + dy;
+
+                    // Clamp to image bounds
+                    newLeft = Math.max(0, Math.min(newLeft, image.getWidth() - selectionWidth));
+                    newTop = Math.max(0, Math.min(newTop, image.getHeight() - selectionHeight));
+
+                    // Apply the clamped position
+                    selectionTopLeftX = newLeft;
+                    selectionTopLeftY = newTop;
+                    selectionBottomRightX = newLeft + selectionWidth;
+                    selectionBottomRightY = newTop + selectionHeight;
                     break;
                 case NONE:
                     break;
             }
 
-            if (selectedCorner != Corner.ROTATE) {
+            if (selectedCorner != Corner.ROTATE && selectedCorner != Corner.MOVE_HANDLE) {
+                // Normalize corners for corner dragging (swap if they cross each other)
+                // Skip this for MOVE_HANDLE since it moves both corners together
                 selectionTopLeftX = Math.min(selectionTopLeftX, selectionBottomRightX);
                 selectionTopLeftY = Math.min(selectionTopLeftY, selectionBottomRightY);
                 selectionBottomRightX = Math.max(selectionTopLeftX, selectionBottomRightX);
                 selectionBottomRightY = Math.max(selectionTopLeftY, selectionBottomRightY);
+                redraw();
+            } else if (selectedCorner == Corner.MOVE_HANDLE) {
+                // Just redraw for move handle (no normalization needed)
                 redraw();
             }
 
@@ -390,20 +421,31 @@ public class CustomImageCanvas extends Canvas {
         final double scaledMoveHandleSize = MOVE_HANDLE_SIZE / scale;
         final double scaledMoveHandlePadding = MOVE_HANDLE_PADDING / scale;
 
-        // Check for rotation handle first (top-right corner of canvas)
-        final double canvasWidth = getWidth();
-        final double canvasHeight = getHeight();
-        if (isInsideRectangle(x, y, canvasWidth - scaledRectSize, 0, scaledRectSize, scaledRectSize)) {
+        // Get visible bounds for handle positioning (handles are drawn at visible positions)
+        final double[] visibleSelection = getVisibleSelection();
+        final double visibleLeft = visibleSelection[0];
+        final double visibleTop = visibleSelection[1];
+        final double visibleRight = visibleSelection[2];
+        final double visibleBottom = visibleSelection[3];
+
+        final double[] visibleBounds = getVisibleCanvasBounds();
+        final double canvasVisibleLeft = visibleBounds[0];
+        final double canvasVisibleTop = visibleBounds[1];
+        final double canvasVisibleRight = visibleBounds[2];
+        final double canvasVisibleBottom = visibleBounds[3];
+
+        // Check for rotation handle first (top-right corner of visible canvas)
+        if (isInsideRectangle(x, y, canvasVisibleRight - scaledRectSize, canvasVisibleTop, scaledRectSize, scaledRectSize)) {
             return Corner.ROTATE;
         }
 
-        // Calculate move handle position (centered above selection, or inside if too close to top)
-        moveHandleX = (selectionTopLeftX + selectionBottomRightX) / 2 - scaledMoveHandleSize / 2;
-        moveHandleY = selectionTopLeftY - scaledMoveHandlePadding - scaledMoveHandleSize;
+        // Calculate move handle position (centered above visible selection, or inside if too close to top)
+        moveHandleX = (visibleLeft + visibleRight) / 2 - scaledMoveHandleSize / 2;
+        moveHandleY = visibleTop - scaledMoveHandlePadding - scaledMoveHandleSize;
 
-        // If handle would be off-screen, position it inside the selection at the top
-        if (moveHandleY < 0) {
-            moveHandleY = selectionTopLeftY + scaledMoveHandlePadding;
+        // If handle would be off visible canvas, position it inside the selection at the top
+        if (moveHandleY < canvasVisibleTop) {
+            moveHandleY = visibleTop + scaledMoveHandlePadding;
         }
 
         // Check for move handle
@@ -411,14 +453,14 @@ public class CustomImageCanvas extends Canvas {
             return Corner.MOVE_HANDLE;
         }
 
-        // Then check selection corners
-        if (isInsideRectangle(x, y, selectionTopLeftX, selectionTopLeftY, scaledRectSize, scaledRectSize)) {
+        // Then check selection corners (using visible bounds)
+        if (isInsideRectangle(x, y, visibleLeft, visibleTop, scaledRectSize, scaledRectSize)) {
             return Corner.TOP_LEFT;
-        } else if (isInsideRectangle(x, y, selectionBottomRightX - scaledRectSize, selectionTopLeftY, scaledRectSize, scaledRectSize)) {
+        } else if (isInsideRectangle(x, y, visibleRight - scaledRectSize, visibleTop, scaledRectSize, scaledRectSize)) {
             return Corner.TOP_RIGHT;
-        } else if (isInsideRectangle(x, y, selectionTopLeftX, selectionBottomRightY - scaledRectSize, scaledRectSize, scaledRectSize)) {
+        } else if (isInsideRectangle(x, y, visibleLeft, visibleBottom - scaledRectSize, scaledRectSize, scaledRectSize)) {
             return Corner.BOTTOM_LEFT;
-        } else if (isInsideRectangle(x, y, selectionBottomRightX - scaledRectSize, selectionBottomRightY - scaledRectSize, scaledRectSize, scaledRectSize)) {
+        } else if (isInsideRectangle(x, y, visibleRight - scaledRectSize, visibleBottom - scaledRectSize, scaledRectSize, scaledRectSize)) {
             return Corner.BOTTOM_RIGHT;
         } else {
             // Removed interior check - clicking inside selection rectangle doesn't move it

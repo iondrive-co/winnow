@@ -6,7 +6,7 @@ plugins {
     id 'org.beryx.jlink' version '3.0.1'
 }
 
-version = '0.3.0'
+version = '0.4.0'
 
 repositories {
     mavenCentral()
@@ -29,6 +29,9 @@ javafx {
 
 jlink {
     options = ['--strip-debug', '--compress=zip-6', '--no-header-files', '--no-man-pages']
+
+    // Merge all non-modular dependencies into the application module
+    forceMerge 'clojure', 'ij', 'commons'
 
     launcher {
         name = 'winnow'
@@ -83,6 +86,9 @@ dependencies {
 
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-Xlint:unchecked'
+    // Allow module to read from unnamed modules (Clojure, commons-io)
+    options.compilerArgs << '--add-reads'
+    options.compilerArgs << 'org.win=ALL-UNNAMED'
 }
 
 // Handle duplicate resources in jar
