@@ -2,7 +2,6 @@
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
 
-
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
   directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown).
 - You will be prompted for an image directory on first launch, this will be saved to a config file in your user
@@ -60,7 +59,6 @@ The selection rectangle can be moved by dragging the green selection handle.
 - Undo operations use `Files.copy()` for byte-for-byte file copying instead of re-encoding images
 - Rotation always transforms from the original unrotated image to avoid cumulative quality loss
 - Cumulative rotation tracking prevents canvas size drift during rotation
-- Resize operations use bicubic interpolation for high-quality scaling
 
 #### Per-Image State Management
 - Each image gets its own UndoManager instance (tracked by position index)

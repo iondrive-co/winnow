@@ -307,4 +307,186 @@ public class CustomImageCanvasTest {
 
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
     }
+
+    @Test
+    public void testResizeImage_resizesToSpecifiedDimensions() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 400;
+        final int newHeight = 300;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+            final BufferedImage resizedImage = canvas.resizeImage(newWidth, newHeight);
+
+            assertThat(resizedImage).isNotNull();
+            assertThat(resizedImage.getWidth()).isEqualTo(newWidth);
+            assertThat(resizedImage.getHeight()).isEqualTo(newHeight);
+            assertThat(canvas.getWidth()).isEqualTo(newWidth);
+            assertThat(canvas.getHeight()).isEqualTo(newHeight);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_updatesImageDimensions() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 1600;
+        final int newHeight = 1200;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+            canvas.resizeImage(newWidth, newHeight);
+
+            assertThat(canvas.getImageWidth()).isEqualTo(newWidth);
+            assertThat(canvas.getImageHeight()).isEqualTo(newHeight);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_resetsSelectionToFullImage() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 400;
+        final int newHeight = 300;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+
+            // Set a partial selection first
+            canvas.setSelectionRegion(100, 100, 500, 400);
+
+            // Resize the image
+            canvas.resizeImage(newWidth, newHeight);
+
+            // Selection should be reset to full image
+            assertThat(canvas.getSelectionLeft()).isEqualTo(0);
+            assertThat(canvas.getSelectionTop()).isEqualTo(0);
+            assertThat(canvas.getSelectionWidth()).isEqualTo(newWidth);
+            assertThat(canvas.getSelectionHeight()).isEqualTo(newHeight);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_scalingUp_preservesQuality() throws Exception {
+        final BufferedImage testImage = createTestImage(100, 100);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 400;
+        final int newHeight = 400;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+            final BufferedImage resizedImage = canvas.resizeImage(newWidth, newHeight);
+
+            assertThat(resizedImage).isNotNull();
+            assertThat(resizedImage.getWidth()).isEqualTo(newWidth);
+            assertThat(resizedImage.getHeight()).isEqualTo(newHeight);
+            assertThat(resizedImage.getType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_scalingDown_reducesSize() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 200;
+        final int newHeight = 150;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+            final BufferedImage resizedImage = canvas.resizeImage(newWidth, newHeight);
+
+            assertThat(resizedImage).isNotNull();
+            assertThat(resizedImage.getWidth()).isEqualTo(newWidth);
+            assertThat(resizedImage.getHeight()).isEqualTo(newHeight);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_resetsRotation() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 400;
+        final int newHeight = 300;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+
+            // Rotate the image first
+            canvas.rotateImage(45);
+
+            // Resize should reset rotation
+            canvas.resizeImage(newWidth, newHeight);
+
+            // After resize, image should be at new dimensions without rotation
+            assertThat(canvas.getImageWidth()).isEqualTo(newWidth);
+            assertThat(canvas.getImageHeight()).isEqualTo(newHeight);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_multipleResizes_eachWorks() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+
+            // First resize
+            canvas.resizeImage(400, 300);
+            assertThat(canvas.getImageWidth()).isEqualTo(400);
+            assertThat(canvas.getImageHeight()).isEqualTo(300);
+
+            // Second resize
+            canvas.resizeImage(200, 150);
+            assertThat(canvas.getImageWidth()).isEqualTo(200);
+            assertThat(canvas.getImageHeight()).isEqualTo(150);
+
+            // Third resize
+            canvas.resizeImage(600, 450);
+            assertThat(canvas.getImageWidth()).isEqualTo(600);
+            assertThat(canvas.getImageHeight()).isEqualTo(450);
+
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testResizeImage_aspectRatioChange_works() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+        final int newWidth = 1000;  // Different aspect ratio
+        final int newHeight = 300;
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+            final BufferedImage resizedImage = canvas.resizeImage(newWidth, newHeight);
+
+            assertThat(resizedImage.getWidth()).isEqualTo(newWidth);
+            assertThat(resizedImage.getHeight()).isEqualTo(newHeight);
+            latch.countDown();
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
 }

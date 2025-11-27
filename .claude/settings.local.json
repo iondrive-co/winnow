@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.gradlew.bat build)",
+      "Bash(gradlew build:*)",
+      "Bash(cmd /c gradlew.bat build)",
+      "Bash(cd:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(java:*)",
+      "Bash(./gradlew wrapper:*)",
+      "Bash(gradle build:*)",
+      "Bash(chmod:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(cat:*)",
+      "Bash(git stash:*)",
+      "Bash(./gradlew clean test:*)",
+      "Bash(mkdir:*)",
+      "Bash(./gradlew clean build:*)",
+      "Bash(./gradlew jlink:*)",
+      "Bash(./gradlew tasks:*)",
+      "Bash(./gradlew jpackageImage:*)",
+      "Bash(./gradlew:*)",
+      "Bash(dir:*)",
+      "Bash(where:*)",
+      "Bash(git checkout:*)",
+      "Bash(xargs:*)",
+      "Bash(git reset:*)",
+      "Bash(pkill:*)",
+      "Bash(identify:*)",
+      "Bash(tee:*)",
+      "Bash(jobs:*)",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(xvfb-run:*)",
+      "Bash(timeout 5 echo:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

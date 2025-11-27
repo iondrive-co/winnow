@@ -25,6 +25,14 @@ Only if issues were encountered which required user interaction to correct, then
 that fixes any problems encountered automatically in the future.
 Keep descriptions concise for all of these.
 
+## Java Platform Module System (JPMS)
+
+This project uses JPMS modules. Non-modular dependencies (Clojure, commons-io) are accessed via `--add-reads org.win=ALL-UNNAMED`:
+- **Compilation**: Already configured in `build.gradle` tasks.withType(JavaCompile)
+- **Runtime**: Already configured in `build.gradle` application.applicationDefaultJvmArgs
+- **IntelliJ**: Already configured in `.idea/runConfigurations/Main.xml`
+  When adding new non-modular dependencies that are accessed from module code, both compile and runtime flags are already in place.
+- 
 # Coordinate Systems and Rendering
 
 When working with JavaFX Canvas:

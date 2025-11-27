@@ -86,18 +86,18 @@ public final class ScreenshotGenerator extends Application {
         // Apply rotation and selection, then reposition control window
         Platform.runLater(() -> {
             // Apply a small rotation to show the feature in action
-            window.imageCanvas.rotateImage(15);
+            window.imageCanvas.rotateImage(2);
 
             Platform.runLater(() -> {
-                // Set a partial selection rectangle to demonstrate cropping
+                // Set a larger selection rectangle to cover the text
                 final double imageWidth = window.imageCanvas.getWidth();
                 final double imageHeight = window.imageCanvas.getHeight();
 
-                final double selectionWidth = imageWidth * 0.7;
-                final double selectionHeight = imageHeight * 0.7;
+                final double selectionWidth = imageWidth * 0.85;
+                final double selectionHeight = imageHeight * 0.6;
 
-                final double left = imageWidth * 0.1;
-                final double top = imageHeight * 0.15;
+                final double left = imageWidth * 0.075;
+                final double top = imageHeight * 0.25;
                 final double right = left + selectionWidth;
                 final double bottom = top + selectionHeight;
 

@@ -2,7 +2,6 @@
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
 
-
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
   directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown).
 - You will be prompted for an image directory on first launch, this will be saved to a config file in your user
@@ -51,7 +50,7 @@ The selection rectangle can be moved by dragging the green selection handle.
 - `Window`: Main UI container managing the filename editor, crop/resize/undo buttons, and file operations. Provides editable image dimensions with resize button. Consolidates common image save/rename operations. Dynamically selects between simple and predictive filename editors based on config.
 - `PredictiveFilenameEditor`: Parses filenames into components with dropdown suggestions. Displays editable separators between components. Includes a "+" button to dynamically add new filename components.
 - `SimpleFilenameEditor`: Single text field filename editor with non-editable extension label.
-- `CustomImageCanvas`: Interactive JavaFX Canvas for image display with selection ROI, rotation, and resizing. Converts ImageJ BufferedImages to JavaFX format. Maintains original image copy for quality-preserving rotation. Uses bicubic interpolation for high-quality resizing. Implements intelligent selection rectangle clamping when zoomed past window bounds.
+- `CustomImageCanvas`: Interactive JavaFX Canvas for image display with selection ROI and rotation. Converts ImageJ BufferedImages to JavaFX format. Maintains original image copy for quality-preserving rotation. Implements intelligent selection rectangle clamping when zoomed past window bounds.
 - `InputDispatcher`: Centralizes keyboard shortcuts, mouse/touchscreen gestures, and zoom controls. Uses event filtering to support modifier key combinations.
 - `Main`: JavaFX Application that manages the image directory, file navigation, per-image undo managers, and application lifecycle.
 
@@ -60,7 +59,6 @@ The selection rectangle can be moved by dragging the green selection handle.
 - Undo operations use `Files.copy()` for byte-for-byte file copying instead of re-encoding images
 - Rotation always transforms from the original unrotated image to avoid cumulative quality loss
 - Cumulative rotation tracking prevents canvas size drift during rotation
-- Resize operations use bicubic interpolation for high-quality scaling
 
 #### Per-Image State Management
 - Each image gets its own UndoManager instance (tracked by position index)

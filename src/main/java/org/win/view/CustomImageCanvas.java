@@ -124,6 +124,44 @@ public class CustomImageCanvas extends Canvas {
         return image;
     }
 
+    public BufferedImage resizeImage(final int newWidth, final int newHeight) {
+        // Use high-quality bicubic interpolation for resizing
+        final BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        final java.awt.Graphics2D g2d = resizedImage.createGraphics();
+
+        // High-quality rendering hints
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                            java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING,
+                            java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                            java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Draw the scaled image
+        g2d.drawImage(image, 0, 0, newWidth, newHeight, null);
+        g2d.dispose();
+
+        // Update canvas and image state
+        setWidth(newWidth);
+        setHeight(newHeight);
+        this.image = resizedImage;
+        this.originalImage = copyImage(resizedImage);
+        this.originalWidth = newWidth;
+        this.originalHeight = newHeight;
+        this.cumulativeRotation = 0.0;
+
+        // Reset selection to full image
+        selectionTopLeftX = 0;
+        selectionTopLeftY = 0;
+        selectionBottomRightX = newWidth;
+        selectionBottomRightY = newHeight;
+
+        drawImage();
+        drawROI();
+
+        return resizedImage;
+    }
+
     // Methods for testing
     public void setSelectionRegion(double topLeftX, double topLeftY, double bottomRightX, double bottomRightY) {
         this.selectionTopLeftX = topLeftX;

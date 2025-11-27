@@ -37,7 +37,9 @@ public class Window {
     private FilenameEditor filenameEditor;
     private Stage controlStage;
     private Stage imageStage;
-    private Label imageDimensionLabel;
+    private TextField imageWidthField;
+    private TextField imageHeightField;
+    private Button resizeButton;
     private TextField selectionOffsetXField;
     private TextField selectionOffsetYField;
     private TextField selectionWidthField;
@@ -543,9 +545,28 @@ public class Window {
     }
 
     private VBox createDimensionDisplay() {
-        // Create label for image dimensions
-        imageDimensionLabel = new Label();
-        imageDimensionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: black;");
+        // Create editable fields for image dimensions
+        imageWidthField = new TextField();
+        imageWidthField.setStyle("-fx-font-size: 14px; -fx-text-fill: black;");
+        imageWidthField.setPrefWidth(50);
+        imageWidthField.setMaxWidth(50);
+
+        imageHeightField = new TextField();
+        imageHeightField.setStyle("-fx-font-size: 14px; -fx-text-fill: black;");
+        imageHeightField.setPrefWidth(50);
+        imageHeightField.setMaxWidth(50);
+
+        final Label imageDimensionXLabel = new Label("x");
+        imageDimensionXLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: black;");
+
+        // Create tiny resize button
+        resizeButton = new Button("⤢");
+        resizeButton.setStyle("-fx-font-size: 10px; -fx-padding: 2px 4px;");
+        resizeButton.setOnAction(e -> handleImageResize());
+
+        final HBox imageDimensionBox = new HBox(imageWidthField, imageDimensionXLabel, imageHeightField, resizeButton);
+        imageDimensionBox.setAlignment(Pos.CENTER_LEFT);
+        imageDimensionBox.setSpacing(2);
 
         // Create offset fields (X, Y)
         selectionOffsetXField = new TextField();
@@ -602,7 +623,7 @@ public class Window {
         // Update fields with current values
         updateDimensionDisplay();
 
-        final VBox container = new VBox(imageDimensionLabel, offsetBox, dimensionBox);
+        final VBox container = new VBox(imageDimensionBox, offsetBox, dimensionBox);
         container.setAlignment(Pos.CENTER_LEFT);
         container.setSpacing(2);
 
@@ -610,7 +631,7 @@ public class Window {
     }
 
     private void updateDimensionDisplay() {
-        if (imageCanvas != null && imageDimensionLabel != null &&
+        if (imageCanvas != null && imageWidthField != null && imageHeightField != null &&
             selectionOffsetXField != null && selectionOffsetYField != null &&
             selectionWidthField != null && selectionHeightField != null) {
 
@@ -638,7 +659,13 @@ public class Window {
                 displayHeight = imageCanvas.getSelectionHeight();
             }
 
-            imageDimensionLabel.setText(imageWidth + " x " + imageHeight);
+            // Update image dimension fields if user is not editing them
+            if (!imageWidthField.isFocused() && !imageHeightField.isFocused()) {
+                updatingDimensionDisplay = true;
+                imageWidthField.setText(String.valueOf(imageWidth));
+                imageHeightField.setText(String.valueOf(imageHeight));
+                updatingDimensionDisplay = false;
+            }
 
             // Don't update the fields if user is actively editing them (has focus)
             // This prevents IllegalArgumentException when updating during typing
@@ -796,6 +823,42 @@ public class Window {
             imageCanvas.setSelectionRegion(left, top, newRight, newBottom);
         } catch (final NumberFormatException e) {
             // Invalid numbers - do nothing, let the user continue editing
+        }
+    }
+
+    private void handleImageResize() {
+        if (imageCanvas == null) {
+            return;
+        }
+
+        final String widthText = imageWidthField.getText().trim();
+        final String heightText = imageHeightField.getText().trim();
+
+        // Check if fields are empty
+        if (widthText.isEmpty() || heightText.isEmpty()) {
+            return;
+        }
+
+        try {
+            final int newWidth = Integer.parseInt(widthText);
+            final int newHeight = Integer.parseInt(heightText);
+
+            // Validate dimensions are positive
+            if (newWidth <= 0 || newHeight <= 0) {
+                return;
+            }
+
+            // Check if dimensions are the same as current (no resize needed)
+            if (newWidth == imageCanvas.getImageWidth() && newHeight == imageCanvas.getImageHeight()) {
+                return;
+            }
+
+            // Resize the image
+            saveImageOperation(imageCanvas.resizeImage(newWidth, newHeight));
+        } catch (final NumberFormatException e) {
+            // Invalid numbers - do nothing
+        } catch (final IOException e) {
+            e.printStackTrace();
         }
     }
 
