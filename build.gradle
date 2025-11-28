@@ -6,7 +6,7 @@ plugins {
     id 'org.beryx.jlink' version '3.0.1'
 }
 
-version = '0.6.0'
+version = '0.6.1'
 
 repositories {
     mavenCentral()
@@ -43,22 +43,31 @@ jlink {
     jpackage {
         imageName = 'Winnow'
         def iconPath = project.file('src/main/resources/org/win/wheat.ico').absolutePath
-        imageOptions = ['--icon', iconPath]
+
+        // Mac jpackage doesn't accept versions starting with 0, so transform 0.x.y to 1.x.y for Mac only
+        def macVersion = project.version.startsWith('0.') ? '1.' + project.version.substring(2) : project.version
+        def osName = System.getProperty("os.name").toLowerCase()
+
+        // Set imageOptions with appropriate version for the platform
+        if (osName.contains("mac")) {
+            imageOptions = ['--icon', iconPath, '--app-version', macVersion]
+        } else {
+            imageOptions = ['--icon', iconPath, '--app-version', project.version]
+        }
 
         installerType = project.hasProperty('installerType') ? project.getProperty('installerType') : null
 
         def commonOptions = [
             '--vendor', 'Winnow',
-            '--app-version', project.version,
             '--description', 'Destructive bulk image editor',
             '--copyright', 'Copyright 2025'
         ]
 
-        def osName = System.getProperty("os.name").toLowerCase()
         installerOptions = commonOptions
 
         if (osName.contains("win")) {
             installerOptions += [
+                '--app-version', project.version,
                 '--win-dir-chooser',
                 '--win-menu',
                 '--win-menu-group', 'Iondrive',
@@ -67,10 +76,12 @@ jlink {
             ]
         } else if (osName.contains("mac")) {
             installerOptions += [
+                '--app-version', macVersion,
                 '--mac-package-name', 'Winnow'
             ]
         } else if (osName.contains("linux")) {
             installerOptions += [
+                '--app-version', project.version,
                 '--linux-shortcut'
             ]
         }
