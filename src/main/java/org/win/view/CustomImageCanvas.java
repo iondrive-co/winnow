@@ -17,14 +17,21 @@ public class CustomImageCanvas extends Canvas {
     private static final Color SELECTION_COLOR = Color.BLUE;
     private static final int MOVE_HANDLE_SIZE = 40;
     private static final int MOVE_HANDLE_PADDING = 10;
-    private static final Color MOVE_HANDLE_COLOR = Color.rgb(0, 200, 0, 0.5); // Semi-transparent green
+    private static final Color MOVE_HANDLE_COLOR = Color.rgb(0, 200, 0, 0.8); // Semi-transparent green
+    private static final int ROTATION_HANDLE_SIZE = 35;
+    private static final int ROTATION_HANDLE_OFFSET = 50; // Distance from corner
+    private static final Color ROTATION_HANDLE_COLOR = Color.RED;
+    private static final double ROTATION_INCREMENT = 5.0; // Degrees per click
+    private static final double CLICK_THRESHOLD = 5.0; // Pixels - max movement to be considered a click
 
     private BufferedImage image;
     private BufferedImage originalImage;  // Store unrotated original for quality preservation
     private double selectionTopLeftX, selectionTopLeftY, selectionBottomRightX, selectionBottomRightY;
     private double moveHandleX, moveHandleY;  // Position of move handle
     private double prevX, prevY;
+    private double mousePressX, mousePressY;  // Track initial press position for click detection
     private boolean dragging;
+    private boolean rotationDragging;  // Track if currently dragging rotation (for performance)
     private Corner selectedCorner;
     private int originalWidth;
     private int originalHeight;
@@ -256,8 +263,10 @@ public class CustomImageCanvas extends Canvas {
         final double scaledRectSize = SELECTION_RECTANGLE_SIZE / scale;
         final double scaledMoveHandleSize = MOVE_HANDLE_SIZE / scale;
         final double scaledMoveHandlePadding = MOVE_HANDLE_PADDING / scale;
+        final double scaledRotationHandleSize = ROTATION_HANDLE_SIZE / scale;
+        final double scaledRotationHandleOffset = ROTATION_HANDLE_OFFSET / scale;
 
-        // Selection corners (using visible bounds)
+        // Selection corners (using visible bounds) - all 4 corners are now selection drag rectangles
         // Top-left corner
         gc.fillRect(visibleLeft, visibleTop, scaledRectSize, scaledRectSize);
         // Top-right corner
@@ -267,25 +276,26 @@ public class CustomImageCanvas extends Canvas {
         // Bottom-right corner
         gc.fillRect(visibleRight - scaledRectSize, visibleBottom - scaledRectSize, scaledRectSize, scaledRectSize);
 
-        // Move handle (centered above visible selection, or inside if too close to top) - semi-transparent green
+        // Move handle (centered above visible selection, or inside if too close to top) - 4-way arrow icon
         double moveHandleX = (visibleLeft + visibleRight) / 2 - scaledMoveHandleSize / 2;
         double moveHandleY = visibleTop - scaledMoveHandlePadding - scaledMoveHandleSize;
 
         final double[] visibleBounds = getVisibleCanvasBounds();
         final double canvasVisibleTop = visibleBounds[1];
+        final double canvasVisibleRight = visibleBounds[2];
 
         // If handle would be off visible canvas, position it inside the selection at the top
         if (moveHandleY < canvasVisibleTop) {
             moveHandleY = visibleTop + scaledMoveHandlePadding;
         }
 
-        gc.setFill(MOVE_HANDLE_COLOR);
-        gc.fillRect(moveHandleX, moveHandleY, scaledMoveHandleSize, scaledMoveHandleSize);
+        drawMoveHandle(gc, moveHandleX, moveHandleY, scaledMoveHandleSize);
 
-        // Rotation handle (top-right corner of visible canvas) - use different color
-        final double canvasVisibleRight = visibleBounds[2];
-        gc.setFill(Color.RED);
-        gc.fillRect(canvasVisibleRight - scaledRectSize, canvasVisibleTop, scaledRectSize, scaledRectSize);
+        // Rotation handle - positioned to track around the perimeter of the viewport as image rotates
+        final double[] handlePos = calculateRotationHandlePosition(
+                visibleBounds[0], visibleBounds[1], visibleBounds[2], visibleBounds[3],
+                scaledRotationHandleSize, scale);
+        drawRotationHandle(gc, handlePos[0], handlePos[1], scaledRotationHandleSize);
     }
 
     private void handleMousePressed(MouseEvent event) {
@@ -295,6 +305,8 @@ public class CustomImageCanvas extends Canvas {
         double y = event.getY() / scale;
         prevX = x;
         prevY = y;
+        mousePressX = x;
+        mousePressY = y;
         selectedCorner = getSelectedCorner(x, y);
 
         if (selectedCorner == Corner.ROTATE) {
@@ -304,6 +316,7 @@ public class CustomImageCanvas extends Canvas {
             rotationDragStartAngle = Math.atan2(y - centerY, x - centerX);
             rotationDragStartCumulative = cumulativeRotation;
             dragging = true;
+            rotationDragging = false; // Will be set true on first drag event
             event.consume();
         } else if (selectedCorner != Corner.NONE) {
             dragging = true;
@@ -329,11 +342,27 @@ public class CustomImageCanvas extends Canvas {
 
             switch (selectedCorner) {
                 case ROTATE:
+                    rotationDragging = true; // Enable fast rotation mode
+
+                    // Use incremental rotation: calculate angle change from previous position
+                    // This works regardless of absolute mouse position (even outside window)
                     double centerX = getWidth() / 2.0;
                     double centerY = getHeight() / 2.0;
                     double currentAngle = Math.atan2(y - centerY, x - centerX);
-                    double angleDelta = currentAngle - rotationDragStartAngle;
-                    cumulativeRotation = rotationDragStartCumulative + Math.toDegrees(angleDelta);
+                    double previousAngle = Math.atan2(prevY - centerY, prevX - centerX);
+
+                    // Calculate the shortest angular distance (handles wrapping at ±π)
+                    double angleDelta = currentAngle - previousAngle;
+                    if (angleDelta > Math.PI) {
+                        angleDelta -= 2 * Math.PI;
+                    } else if (angleDelta < -Math.PI) {
+                        angleDelta += 2 * Math.PI;
+                    }
+
+                    // Add incremental rotation to cumulative total
+                    cumulativeRotation += Math.toDegrees(angleDelta);
+
+                    // Update immediately for smooth rotation (no throttling)
                     applyRotation();
                     break;
                 case TOP_LEFT:
@@ -401,14 +430,38 @@ public class CustomImageCanvas extends Canvas {
     }
 
     private void handleMouseReleased(MouseEvent event) {
-        if (dragging && selectedCorner == Corner.ROTATE) {
-            // Rotation drag complete - notify Window to save
-            double totalRotation = cumulativeRotation - rotationDragStartCumulative;
-            if (onRotationComplete != null && Math.abs(totalRotation) > 0.1) {
-                onRotationComplete.accept(totalRotation);
+        final double scale = getScaleX();
+        final double x = event.getX() / scale;
+        final double y = event.getY() / scale;
+
+        if (selectedCorner == Corner.ROTATE) {
+            // Calculate distance moved to determine if it's a click or drag
+            final double dx = x - mousePressX;
+            final double dy = y - mousePressY;
+            final double distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < CLICK_THRESHOLD) {
+                // Single click - rotate by increment
+                rotateImage(ROTATION_INCREMENT);
+                if (onRotationComplete != null) {
+                    onRotationComplete.accept(ROTATION_INCREMENT);
+                }
+            } else if (dragging && rotationDragging) {
+                // Rotation drag complete - apply final high-quality rotation
+                rotationDragging = false;
+                applyRotation(); // Re-apply with high quality
+
+                // Calculate total rotation from drag start
+                final double totalRotation = cumulativeRotation - rotationDragStartCumulative;
+
+                // Notify Window to save (even small rotations, since they're intentional drags)
+                if (onRotationComplete != null && Math.abs(totalRotation) > 0.01) {
+                    onRotationComplete.accept(totalRotation);
+                }
             }
         }
         dragging = false;
+        rotationDragging = false;
     }
 
     private void applyRotation() {
@@ -422,13 +475,26 @@ public class CustomImageCanvas extends Canvas {
         BufferedImage rotatedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g2d = rotatedImage.createGraphics();
 
-        // High-quality rendering
-        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
-                            java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        g2d.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING,
-                            java.awt.RenderingHints.VALUE_RENDER_QUALITY);
-        g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
-                            java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        // Use fast rendering during drag, high-quality after
+        if (rotationDragging) {
+            // Fastest rendering for interactive performance - nearest neighbor is much faster than bilinear
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                                java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING,
+                                java.awt.RenderingHints.VALUE_RENDER_SPEED);
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                                java.awt.RenderingHints.VALUE_ANTIALIAS_OFF);
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_ALPHA_INTERPOLATION,
+                                java.awt.RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED);
+        } else {
+            // High-quality rendering for final result
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                                java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING,
+                                java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        }
 
         g2d.setColor(java.awt.Color.WHITE);
         g2d.fillRect(0, 0, newWidth, newHeight);
@@ -458,6 +524,8 @@ public class CustomImageCanvas extends Canvas {
         final double scaledRectSize = SELECTION_RECTANGLE_SIZE / scale;
         final double scaledMoveHandleSize = MOVE_HANDLE_SIZE / scale;
         final double scaledMoveHandlePadding = MOVE_HANDLE_PADDING / scale;
+        final double scaledRotationHandleSize = ROTATION_HANDLE_SIZE / scale;
+        final double scaledRotationHandleOffset = ROTATION_HANDLE_OFFSET / scale;
 
         // Get visible bounds for handle positioning (handles are drawn at visible positions)
         final double[] visibleSelection = getVisibleSelection();
@@ -472,8 +540,13 @@ public class CustomImageCanvas extends Canvas {
         final double canvasVisibleRight = visibleBounds[2];
         final double canvasVisibleBottom = visibleBounds[3];
 
-        // Check for rotation handle first (top-right corner of visible canvas)
-        if (isInsideRectangle(x, y, canvasVisibleRight - scaledRectSize, canvasVisibleTop, scaledRectSize, scaledRectSize)) {
+        // Check for rotation handle first - positioned around viewport perimeter
+        final double[] handlePos = calculateRotationHandlePosition(
+                canvasVisibleLeft, canvasVisibleTop, canvasVisibleRight, canvasVisibleBottom,
+                scaledRotationHandleSize, scale);
+        final double rotationHandleX = handlePos[0];
+        final double rotationHandleY = handlePos[1];
+        if (isInsideRectangle(x, y, rotationHandleX, rotationHandleY, scaledRotationHandleSize, scaledRotationHandleSize)) {
             return Corner.ROTATE;
         }
 
@@ -491,7 +564,7 @@ public class CustomImageCanvas extends Canvas {
             return Corner.MOVE_HANDLE;
         }
 
-        // Then check selection corners (using visible bounds)
+        // Then check selection corners (using visible bounds) - all 4 corners are now selection drag rectangles
         if (isInsideRectangle(x, y, visibleLeft, visibleTop, scaledRectSize, scaledRectSize)) {
             return Corner.TOP_LEFT;
         } else if (isInsideRectangle(x, y, visibleRight - scaledRectSize, visibleTop, scaledRectSize, scaledRectSize)) {
@@ -517,6 +590,118 @@ public class CustomImageCanvas extends Canvas {
         g.drawImage(source, 0, 0, null);
         g.dispose();
         return copy;
+    }
+
+    private double[] calculateRotationHandlePosition(final double visibleLeft, final double visibleTop,
+                                                      final double visibleRight, final double visibleBottom,
+                                                      final double handleSize, final double scale) {
+        // Position handle around the perimeter of the viewport as the image rotates
+        // Strategy: 0° → top-right, 90° → bottom-right, 180° → bottom-left, 270° → top-left
+
+        // Normalize rotation to 0-360 range
+        double normalizedRotation = cumulativeRotation % 360;
+        if (normalizedRotation < 0) {
+            normalizedRotation += 360;
+        }
+
+        // Ensure entire handle is visible - account for full handle size plus margin
+        final double margin = 15 / scale;  // Increased margin to keep handle well within bounds
+        final double inset = handleSize + margin; // Full handle size plus margin from edge
+        double handleX, handleY;
+
+        if (normalizedRotation >= 0 && normalizedRotation < 90) {
+            // First quadrant: Move from top-right down the right edge
+            final double progress = normalizedRotation / 90.0;
+            handleX = visibleRight - inset;
+            handleY = visibleTop + margin + progress * (visibleBottom - visibleTop - handleSize - 2 * margin);
+        } else if (normalizedRotation >= 90 && normalizedRotation < 180) {
+            // Second quadrant: Move from bottom-right to bottom-left along bottom edge
+            final double progress = (normalizedRotation - 90) / 90.0;
+            handleX = visibleRight - inset - progress * (visibleRight - visibleLeft - handleSize - 2 * margin);
+            handleY = visibleBottom - inset;
+        } else if (normalizedRotation >= 180 && normalizedRotation < 270) {
+            // Third quadrant: Move from bottom-left up the left edge
+            final double progress = (normalizedRotation - 180) / 90.0;
+            handleX = visibleLeft + margin;
+            handleY = visibleBottom - inset - progress * (visibleBottom - visibleTop - handleSize - 2 * margin);
+        } else {
+            // Fourth quadrant: Move from top-left to top-right along top edge
+            final double progress = (normalizedRotation - 270) / 90.0;
+            handleX = visibleLeft + margin + progress * (visibleRight - visibleLeft - handleSize - 2 * margin);
+            handleY = visibleTop + margin;
+        }
+
+        return new double[]{handleX, handleY};
+    }
+
+    private void drawRotationHandle(final GraphicsContext gc, final double x, final double y, final double size) {
+        // Draw a clockwise circular arrow icon
+        gc.setFill(ROTATION_HANDLE_COLOR);
+        gc.setStroke(ROTATION_HANDLE_COLOR);
+        final double scale = Math.max(getScaleX(), 0.1);
+        gc.setLineWidth(3 / scale);
+
+        final double centerX = x + size / 2;
+        final double centerY = y + size / 2;
+        final double radius = size * 0.35;
+
+        // Draw circular arc (270 degrees starting from top, going clockwise)
+        gc.strokeArc(centerX - radius, centerY - radius, radius * 2, radius * 2, 90, 270, javafx.scene.shape.ArcType.OPEN);
+
+        // Draw arrowhead at the end of the arc (pointing clockwise at top)
+        final double arrowX = centerX;
+        final double arrowY = centerY - radius;
+        final double arrowSize = size * 0.25;
+
+        // Arrow pointing right (clockwise direction at top of circle)
+        gc.fillPolygon(
+                new double[]{arrowX, arrowX + arrowSize, arrowX},
+                new double[]{arrowY - arrowSize * 0.5, arrowY, arrowY + arrowSize * 0.5},
+                3
+        );
+    }
+
+    private void drawMoveHandle(final GraphicsContext gc, final double x, final double y, final double size) {
+        // Draw a 4-way arrow icon (cross with arrows)
+        gc.setFill(MOVE_HANDLE_COLOR);
+        gc.setStroke(MOVE_HANDLE_COLOR);
+        final double scale = Math.max(getScaleX(), 0.1);
+        gc.setLineWidth(3 / scale);
+
+        final double centerX = x + size / 2;
+        final double centerY = y + size / 2;
+        final double armLength = size * 0.35;
+        final double arrowSize = size * 0.2;
+
+        // Draw cross lines
+        gc.strokeLine(centerX - armLength, centerY, centerX + armLength, centerY); // Horizontal
+        gc.strokeLine(centerX, centerY - armLength, centerX, centerY + armLength); // Vertical
+
+        // Draw arrowheads at the end of each arm
+        // Right arrow
+        gc.fillPolygon(
+                new double[]{centerX + armLength, centerX + armLength - arrowSize, centerX + armLength - arrowSize},
+                new double[]{centerY, centerY - arrowSize * 0.6, centerY + arrowSize * 0.6},
+                3
+        );
+        // Left arrow
+        gc.fillPolygon(
+                new double[]{centerX - armLength, centerX - armLength + arrowSize, centerX - armLength + arrowSize},
+                new double[]{centerY, centerY - arrowSize * 0.6, centerY + arrowSize * 0.6},
+                3
+        );
+        // Up arrow
+        gc.fillPolygon(
+                new double[]{centerX, centerX - arrowSize * 0.6, centerX + arrowSize * 0.6},
+                new double[]{centerY - armLength, centerY - armLength + arrowSize, centerY - armLength + arrowSize},
+                3
+        );
+        // Down arrow
+        gc.fillPolygon(
+                new double[]{centerX, centerX - arrowSize * 0.6, centerX + arrowSize * 0.6},
+                new double[]{centerY + armLength, centerY + armLength - arrowSize, centerY + armLength - arrowSize},
+                3
+        );
     }
 
     public void setOnRotationComplete(java.util.function.Consumer<Double> callback) {
@@ -571,6 +756,19 @@ public class CustomImageCanvas extends Canvas {
     public int getVisibleSelectionHeight() {
         final double[] visibleSelection = getVisibleSelection();
         return (int) Math.round(visibleSelection[3] - visibleSelection[1]);
+    }
+
+    // For testing - returns rotation handle bounds [x, y, width, height]
+    public double[] getRotationHandleBounds() {
+        final double scale = Math.max(getScaleX(), 0.1);
+        final double scaledRotationHandleSize = ROTATION_HANDLE_SIZE / scale;
+
+        final double[] visibleBounds = getVisibleCanvasBounds();
+        final double[] handlePos = calculateRotationHandlePosition(
+                visibleBounds[0], visibleBounds[1], visibleBounds[2], visibleBounds[3],
+                scaledRotationHandleSize, scale);
+
+        return new double[]{handlePos[0], handlePos[1], scaledRotationHandleSize, scaledRotationHandleSize};
     }
 
     private double[] getVisibleCanvasBounds() {

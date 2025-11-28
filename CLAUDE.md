@@ -10,8 +10,10 @@ Replace unnecessarily verbose code with more terse statements.
 Use the latest java features up to java 24. 
 Remove unnecessary comments and use better variable naming where needed. 
 Ensure all variables that can be final are.
-For all changes, write comprehensive JUnit tests, using assertJ where needed.
-Write or modify at least one integration test which displays the actual window on screen
+
+If functionality is modified or added:
+- Write comprehensive JUnit tests, using assertJ where needed.
+- Write or modify at least one integration test which displays the actual window on screen
 
 ## After Making Changes
 
@@ -24,6 +26,8 @@ Update the **Design Decisions** section if architectural patterns or key strateg
 Only if issues were encountered which required user interaction to correct, then update the .claude.md with something
 that fixes any problems encountered automatically in the future.
 Keep descriptions concise for all of these.
+
+When finished, do not commit changes to git, I will review them and commit myself
 
 ## Java Platform Module System (JPMS)
 

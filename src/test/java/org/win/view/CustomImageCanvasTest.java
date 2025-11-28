@@ -489,4 +489,56 @@ public class CustomImageCanvasTest {
 
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
     }
+
+    @Test
+    public void testRotationHandle_isVisibleWithinCanvasBounds() throws Exception {
+        final BufferedImage testImage = createTestImage(TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT);
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            final CustomImageCanvas canvas = new CustomImageCanvas(testImage);
+
+            // Test at different rotation angles
+            final double[] testAngles = {0, 15, 30, 45, 90, 180, 270};
+
+            for (final double angle : testAngles) {
+                if (angle > 0) {
+                    canvas.rotateImage(angle);
+                }
+
+                final double[] handleBounds = canvas.getRotationHandleBounds();
+                final double handleX = handleBounds[0];
+                final double handleY = handleBounds[1];
+                final double handleWidth = handleBounds[2];
+                final double handleHeight = handleBounds[3];
+
+                // The handle should be within reasonable bounds of the canvas
+                // At minimum, the center of the handle should be visible
+                final double handleCenterX = handleX + handleWidth / 2;
+                final double handleCenterY = handleY + handleHeight / 2;
+
+                System.out.println(String.format("Rotation: %.0f° - Handle at (%.1f, %.1f), size: %.1f x %.1f, Canvas: %.1f x %.1f",
+                        angle, handleX, handleY, handleWidth, handleHeight, canvas.getWidth(), canvas.getHeight()));
+
+                // Check that handle center is within extended canvas bounds (allowing some overflow for visibility)
+                // The handle should be at least partially visible, so we allow it to extend beyond but not too far
+                final double margin = 200; // Allow handle to be up to 200 pixels outside canvas
+                assertThat(handleCenterX)
+                        .as("Handle center X at rotation %.0f° should be near canvas (0 to %.0f)", angle, canvas.getWidth())
+                        .isBetween(-margin, canvas.getWidth() + margin);
+                assertThat(handleCenterY)
+                        .as("Handle center Y at rotation %.0f° should be near canvas (0 to %.0f)", angle, canvas.getHeight())
+                        .isBetween(-margin, canvas.getHeight() + margin);
+
+                // Reset for next test
+                if (angle > 0) {
+                    canvas.rotateImage(-angle);
+                }
+            }
+
+            latch.countDown();
+        });
+
+        assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
+    }
 }

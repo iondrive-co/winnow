@@ -442,9 +442,16 @@ public class Window {
         if (controlStage.getScene() != null) {
             final double sceneWidth = controlStage.getScene().getWidth();
             final double sceneHeight = controlStage.getScene().getHeight();
-            // Only resize if scene has valid dimensions (> 1 to avoid Gtk warnings)
-            if (sceneWidth > 1 && sceneHeight > 1) {
-                controlStage.sizeToScene();
+            // Only resize if scene has valid dimensions (> 10 to avoid Gtk warnings)
+            // Also check that control stage doesn't already have invalid dimensions
+            if (sceneWidth > 10 && sceneHeight > 10 &&
+                controlStage.getHeight() > 10 && controlStage.getWidth() > 10) {
+                try {
+                    controlStage.sizeToScene();
+                } catch (Exception e) {
+                    // Ignore GTK errors during resize
+                    System.err.println("Warning: Failed to resize control window: " + e.getMessage());
+                }
             }
         }
 

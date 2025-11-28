@@ -4,7 +4,6 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Scene;
-import javafx.scene.SnapshotParameters;
 import javafx.scene.image.WritableImage;
 import javafx.stage.Stage;
 import org.win.model.UndoManager;
@@ -15,8 +14,6 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -26,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 public final class ScreenshotGenerator extends Application {
 
     private static final String SCREENSHOT_FILENAME = "winnow-screenshot.png";
-    private static Path tempDir;
     private static File screenshotOutput;
     private static String version;
 
@@ -48,69 +44,47 @@ public final class ScreenshotGenerator extends Application {
 
     @Override
     public void start(final Stage primaryStage) throws Exception {
-        // Create temp directory with short name to avoid scrollbar in control window
-        final Path baseTempDir = Files.createTempDirectory("winnow-demo");
-        tempDir = baseTempDir.resolve("photos");
-        Files.createDirectories(tempDir);
-
-        // Generate multiple images with SHORT filenames to avoid horizontal scrollbar
-        // in the predictive filename editor
-        final String[] filenames = {
-            "IMG_01.jpg",
-            "IMG_02.jpg",
-            "IMG_03.jpg",
-            "IMG_04.jpg",
-            "IMG_05.jpg",
-            "IMG_06.jpg",
-            "IMG_07.jpg"
-        };
-
-        // Generate procedural abstract art for each file
-        for (int i = 0; i < filenames.length; i++) {
-            final File imageFile = new File(tempDir.toFile(), filenames[i]);
-            TestImageGenerator.generateAbstractArt(i * 1000 + 42, imageFile, version);
+        // Use the winnow.png image from docs folder as the demo image
+        final File demoImage = new File("docs/winnow.png");
+        if (!demoImage.exists()) {
+            System.err.println("ERROR: docs/winnow.png not found!");
+            Platform.exit();
+            return;
         }
 
-        // Launch the app with the third image (index 2)
-        final File demoImage = new File(tempDir.toFile(), filenames[2]);
         final UndoManager undoManager = new UndoManager();
         final Window window = new Window();
 
-        final Scene scene = window.displayFile(primaryStage, demoImage, 3, filenames.length, null, undoManager, null, null, null);
+        // Display the winnow.png image (single image, no gallery navigation)
+        final Scene scene = window.displayFile(primaryStage, demoImage, 1, 1, null, undoManager, null, null, null);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Winnow");
         primaryStage.setWidth(1200);
         primaryStage.setHeight(800);
         primaryStage.show();
 
-        // Apply rotation and selection, then reposition control window
+        // Setup and take screenshot
         Platform.runLater(() -> {
-            // Apply a small rotation to show the feature in action
-            window.imageCanvas.rotateImage(2);
+            // Set a large selection rectangle - 80% of image size, centered
+            final double imageWidth = window.imageCanvas.getWidth();
+            final double imageHeight = window.imageCanvas.getHeight();
+
+            final double selectionWidth = imageWidth * 0.80;
+            final double selectionHeight = imageHeight * 0.75;
+            final double left = (imageWidth - selectionWidth) / 2;
+            final double top = (imageHeight - selectionHeight) / 2;
+            final double right = left + selectionWidth;
+            final double bottom = top + selectionHeight;
+
+            window.imageCanvas.setSelectionRegion(left, top, right, bottom);
 
             Platform.runLater(() -> {
-                // Set a larger selection rectangle to cover the text
-                final double imageWidth = window.imageCanvas.getWidth();
-                final double imageHeight = window.imageCanvas.getHeight();
-
-                final double selectionWidth = imageWidth * 0.85;
-                final double selectionHeight = imageHeight * 0.6;
-
-                final double left = imageWidth * 0.075;
-                final double top = imageHeight * 0.25;
-                final double right = left + selectionWidth;
-                final double bottom = top + selectionHeight;
-
-                window.imageCanvas.setSelectionRegion(left, top, right, bottom);
+                // Reposition control window
+                window.repositionControlWindow();
 
                 Platform.runLater(() -> {
-                    // Reposition control window after rotation changes image size
+                    // Give positioning time to take effect
                     window.repositionControlWindow();
-
-                    Platform.runLater(() -> {
-                        // Give positioning time to take effect
-                        window.repositionControlWindow();
-                    });
                 });
             });
         });
@@ -170,8 +144,6 @@ public final class ScreenshotGenerator extends Application {
         final Stage controlStage = window.getControlStage();
 
         // Capture snapshots of both windows
-        final SnapshotParameters params = new SnapshotParameters();
-
         final WritableImage imageSnapshot = imageStage.getScene().snapshot(null);
         final WritableImage controlSnapshot = controlStage != null && controlStage.isShowing()
             ? controlStage.getScene().snapshot(null)
@@ -183,14 +155,14 @@ public final class ScreenshotGenerator extends Application {
             ? SwingFXUtils.fromFXImage(controlSnapshot, null)
             : null;
 
-        // Combine the two images vertically
-        final BufferedImage combined;
+        // Combine the two images vertically first
+        final BufferedImage appScreenshot;
         if (controlBuffer != null) {
             final int width = Math.max(imageBuffer.getWidth(), controlBuffer.getWidth());
             final int height = imageBuffer.getHeight() + controlBuffer.getHeight();
 
-            combined = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-            final Graphics2D g2d = combined.createGraphics();
+            appScreenshot = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            final Graphics2D g2d = appScreenshot.createGraphics();
 
             // Draw image window at top
             g2d.drawImage(imageBuffer, 0, 0, null);
@@ -201,31 +173,85 @@ public final class ScreenshotGenerator extends Application {
 
             g2d.dispose();
         } else {
-            // If no control window, just use the image
-            combined = imageBuffer;
+            appScreenshot = imageBuffer;
         }
 
+        // Create larger canvas with annotations
+        final int margin = 150;
+        final int annotatedWidth = appScreenshot.getWidth() + margin * 2;
+        final int annotatedHeight = appScreenshot.getHeight() + margin * 2;
+
+        final BufferedImage annotated = new BufferedImage(annotatedWidth, annotatedHeight, BufferedImage.TYPE_INT_RGB);
+        final Graphics2D g2d = annotated.createGraphics();
+
+        // Set high quality rendering
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        // White background
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.fillRect(0, 0, annotatedWidth, annotatedHeight);
+
+        // Draw the app screenshot in the center
+        final int screenshotX = margin;
+        final int screenshotY = margin;
+        g2d.drawImage(appScreenshot, screenshotX, screenshotY, null);
+
+        // Add version number in top-left corner
+        g2d.setColor(java.awt.Color.DARK_GRAY);
+        g2d.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 24));
+        g2d.drawString("Winnow v" + version, 20, 40);
+
+        // Add arrows and labels pointing to UI components
+        // Rotation handle - pointing to top-right area where handle is positioned
+        addAnnotation(g2d, screenshotX + 1075, screenshotY - 40, screenshotX + 1075, screenshotY + 15,
+                      "Rotation handle", true);
+        // Selection rectangle - pointing to top edge of selection
+        addAnnotation(g2d, screenshotX + 500, screenshotY - 40, screenshotX + 500, screenshotY + 5,
+                      "Selection rectangle", true);
+        // Control window - shortened arrow pointing down to control panel
+        addAnnotation(g2d, screenshotX + appScreenshot.getWidth() / 2, screenshotY + appScreenshot.getHeight() + 30,
+                      screenshotX + appScreenshot.getWidth() / 2, screenshotY + appScreenshot.getHeight() - 20,
+                      "Control window", false);
+
+        g2d.dispose();
+
         // Save as PNG
-        ImageIO.write(combined, "png", screenshotOutput);
+        ImageIO.write(annotated, "png", screenshotOutput);
+    }
+
+    private void addAnnotation(final Graphics2D g2d, final int labelX, final int labelY,
+                                final int arrowToX, final int arrowToY, final String label, final boolean above) {
+        g2d.setColor(java.awt.Color.RED);
+        g2d.setStroke(new java.awt.BasicStroke(2));
+
+        // Draw arrow line
+        g2d.drawLine(labelX, labelY, arrowToX, arrowToY);
+
+        // Draw arrowhead
+        final int arrowSize = 8;
+        final double angle = Math.atan2(arrowToY - labelY, arrowToX - labelX);
+        final int x1 = (int) (arrowToX - arrowSize * Math.cos(angle - Math.PI / 6));
+        final int y1 = (int) (arrowToY - arrowSize * Math.sin(angle - Math.PI / 6));
+        final int x2 = (int) (arrowToX - arrowSize * Math.cos(angle + Math.PI / 6));
+        final int y2 = (int) (arrowToY - arrowSize * Math.sin(angle + Math.PI / 6));
+
+        g2d.fillPolygon(new int[]{arrowToX, x1, x2}, new int[]{arrowToY, y1, y2}, 3);
+
+        // Draw label
+        g2d.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 16));
+        final java.awt.FontMetrics fm = g2d.getFontMetrics();
+        final int textWidth = fm.stringWidth(label);
+        final int textX = labelX - textWidth / 2;
+        final int textY = above ? labelY - 5 : labelY + fm.getHeight();
+
+        g2d.drawString(label, textX, textY);
     }
 
     private void cleanup(final UndoManager undoManager) {
         try {
             if (undoManager != null) {
                 undoManager.cleanup();
-            }
-            if (tempDir != null) {
-                // Delete the gallery directory and its parent temp directory
-                final Path rootDir = tempDir.getParent();
-                Files.walk(rootDir)
-                        .sorted((a, b) -> -a.compareTo(b))
-                        .forEach(path -> {
-                            try {
-                                Files.delete(path);
-                            } catch (final IOException e) {
-                                // Ignore
-                            }
-                        });
             }
         } catch (final Exception e) {
             // Ignore cleanup errors

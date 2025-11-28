@@ -1,0 +1,21 @@
+# Ensure shell scripts always have LF line endings, even on Windows
+*.sh text eol=lf
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+# Standard settings for other files
+* text=auto
+*.java text
+*.gradle text
+*.md text
+*.xml text
+*.yml text
+*.yaml text
+*.properties text
+
+# Binary files
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary

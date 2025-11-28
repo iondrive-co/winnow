@@ -2,7 +2,6 @@
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
 
-
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
   directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown).
 - You will be prompted for an image directory on first launch, this will be saved to a config file in your user

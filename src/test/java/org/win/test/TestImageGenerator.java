@@ -376,13 +376,7 @@ public final class TestImageGenerator {
             g2d.drawLine(originX, originY, endX, endY);
         }
 
-        // Large, bold gold text
-        g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 80));
-        g2d.setColor(new Color(210, 180, 70));
-        final FontMetrics fm = g2d.getFontMetrics();
-        final String text = "winnow v" + version;
-        final int textWidth = fm.stringWidth(text);
-        g2d.drawString(text, (width - textWidth) / 2, (int)(height * 0.65) + fm.getHeight() / 3);
+        drawPaintedText(g2d, "winnow v" + version, width, height, rand);
     }
 
     private static void generateGeometricShapes(final Graphics2D g2d, final int width, final int height,
@@ -407,13 +401,7 @@ public final class TestImageGenerator {
             g2d.drawLine(originX, originY, endX, endY);
         }
 
-        // Large gold text
-        g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 80));
-        g2d.setColor(new Color(210, 180, 70));
-        final FontMetrics fm = g2d.getFontMetrics();
-        final String text = "winnow v" + version;
-        final int textWidth = fm.stringWidth(text);
-        g2d.drawString(text, (width - textWidth) / 2, (int)(height * 0.65) + fm.getHeight() / 3);
+        drawPaintedText(g2d, "winnow v" + version, width, height, rand);
     }
 
     private static void generateParticleField(final Graphics2D g2d, final int width, final int height,
@@ -438,13 +426,7 @@ public final class TestImageGenerator {
             g2d.drawLine(originX, originY, endX, endY);
         }
 
-        // Large gold text
-        g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 80));
-        g2d.setColor(new Color(210, 180, 70));
-        final FontMetrics fm = g2d.getFontMetrics();
-        final String text = "winnow v" + version;
-        final int textWidth = fm.stringWidth(text);
-        g2d.drawString(text, (width - textWidth) / 2, (int)(height * 0.65) + fm.getHeight() / 3);
+        drawPaintedText(g2d, "winnow v" + version, width, height, rand);
     }
 
     private static void generateMondrianStyle(final Graphics2D g2d, final int width, final int height,
@@ -469,13 +451,7 @@ public final class TestImageGenerator {
             g2d.drawLine(originX, originY, endX, endY);
         }
 
-        // Bold gold text
-        g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 80));
-        g2d.setColor(new Color(210, 180, 70));
-        final FontMetrics fm = g2d.getFontMetrics();
-        final String text = "winnow v" + version;
-        final int textWidth = fm.stringWidth(text);
-        g2d.drawString(text, (width - textWidth) / 2, (int)(height * 0.65) + fm.getHeight() / 3);
+        drawPaintedText(g2d, "winnow v" + version, width, height, rand);
     }
 
 
@@ -501,12 +477,96 @@ public final class TestImageGenerator {
             g2d.drawLine(originX, originY, endX, endY);
         }
 
-        // Clean gold text
-        g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 80));
-        g2d.setColor(new Color(210, 180, 70));
+        drawPaintedText(g2d, "winnow v" + version, width, height, rand);
+    }
+
+    private static void drawPaintedText(final Graphics2D g2d, final String text, final int width,
+                                        final int height, final Random rand) {
+        final int centerX = width / 2;
+        final int centerY = (int)(height * 0.65);
+
+        // Convert to uppercase and remove 'v' prefix
+        final String displayText = text.toUpperCase().replace("V", "");
+
+        // Use serif font for classic painting aesthetic
+        final Font mainFont = new Font("Serif", Font.BOLD, 72);
+        g2d.setFont(mainFont);
         final FontMetrics fm = g2d.getFontMetrics();
-        final String text = "winnow v" + version;
-        final int textWidth = fm.stringWidth(text);
-        g2d.drawString(text, (width - textWidth) / 2, (int)(height * 0.65) + fm.getHeight() / 3);
+
+        // Calculate total width with much wider spacing between characters
+        final int extraSpacing = 40;
+        int totalWidth = 0;
+        for (int i = 0; i < displayText.length(); i++) {
+            totalWidth += fm.charWidth(displayText.charAt(i)) + extraSpacing;
+        }
+
+        // Starting position for centered text
+        int currentX = centerX - totalWidth / 2;
+        final int baseY = centerY + fm.getHeight() / 3;
+
+        // Draw each character with very rough, barely legible hand-painted effect
+        for (int i = 0; i < displayText.length(); i++) {
+            final String character = String.valueOf(displayText.charAt(i));
+            final int charWidth = fm.charWidth(displayText.charAt(i));
+
+            // Add larger random variations for very messy painted look
+            final int messyXOffset = rand.nextInt(11) - 5;
+            final int messyYOffset = rand.nextInt(9) - 4;
+            final double messyRotation = (rand.nextDouble() - 0.5) * 0.25;
+
+            final int charX = currentX + messyXOffset;
+            final int charY = baseY + messyYOffset;
+
+            // Save original transform
+            final var originalTransform = g2d.getTransform();
+
+            // Rotate around character center for hand-painted irregularity
+            g2d.rotate(messyRotation, charX + charWidth / 2, charY);
+
+            // Draw shadow layers for depth with darker color
+            for (int j = 6; j > 0; j--) {
+                final int alpha = 20 + j * 8;
+                final int shadowOff = rand.nextInt(3);
+                g2d.setColor(new Color(0, 0, 0, alpha));
+                g2d.drawString(character, charX + j + shadowOff, charY + j + shadowOff);
+            }
+
+            // Draw many irregular offset layers for very rough brush stroke texture
+            for (int j = 0; j < 15; j++) {
+                final int xOff = rand.nextInt(7) - 3;
+                final int yOff = rand.nextInt(7) - 3;
+                final int goldVar = rand.nextInt(30);
+                // Darker gold similar to background rays
+                final int alpha = 120 + rand.nextInt(60);
+                g2d.setColor(new Color(170 + goldVar, 145 + goldVar, 45 + goldVar, alpha));
+                g2d.drawString(character, charX + xOff, charY + yOff);
+            }
+
+            // Main character layer in darker gold (matching background rays)
+            final int mainGoldVar = rand.nextInt(20);
+            g2d.setColor(new Color(190 + mainGoldVar, 160 + mainGoldVar, 55 + mainGoldVar, 220 + rand.nextInt(35)));
+            g2d.drawString(character, charX, charY);
+
+            // Add some random irregular highlights (not consistent across all letters)
+            if (rand.nextBoolean()) {
+                final int highlightOffset = rand.nextInt(3) - 1;
+                g2d.setColor(new Color(210, 180, 70, 80 + rand.nextInt(40)));
+                g2d.drawString(character, charX + highlightOffset, charY - 1 + highlightOffset);
+            }
+
+            // Add some degraded areas to make it look worn/rough
+            for (int j = 0; j < 5; j++) {
+                final int fadeX = charX + rand.nextInt(charWidth) - charWidth / 2;
+                final int fadeY = charY + rand.nextInt(20) - 10;
+                g2d.setColor(new Color(15, 15, 20, 40 + rand.nextInt(30)));
+                g2d.fillRect(fadeX, fadeY, 3 + rand.nextInt(4), 2 + rand.nextInt(3));
+            }
+
+            // Restore transform
+            g2d.setTransform(originalTransform);
+
+            // Move to next character position
+            currentX += charWidth + extraSpacing;
+        }
     }
 }
