@@ -309,6 +309,11 @@ public class CustomImageCanvas extends Canvas {
         mousePressY = y;
         selectedCorner = getSelectedCorner(x, y);
 
+        // Give navigation drag precedence when Ctrl/touch is active
+        if ((event.isControlDown() || event.isSynthesized()) && selectedCorner == Corner.MOVE_HANDLE) {
+            selectedCorner = Corner.NONE;
+        }
+
         if (selectedCorner == Corner.ROTATE) {
             // Start rotation drag
             double centerX = getWidth() / 2.0;

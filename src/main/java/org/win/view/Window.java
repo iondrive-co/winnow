@@ -48,6 +48,7 @@ public class Window {
     private Runnable onDirectoryChange;
     private org.win.ConfigManager configManager;
     private boolean updatingDimensionDisplay = false;
+    private ScrollPane filenameScrollPane;
 
     public void setConfigManager(final org.win.ConfigManager configManager) {
         this.configManager = configManager;
@@ -89,6 +90,7 @@ public class Window {
         }
 
         imageCanvas.setOnSelectionChange(() -> updateDimensionDisplay());
+        applyInitialZoomToFit();
 
         Group group = new Group(imageCanvas);
         StackPane centerPane = new StackPane(group);
@@ -183,12 +185,15 @@ public class Window {
         // Wrap in ScrollPane to prevent button resizing when adding fields
         ScrollPane scrollPane = new ScrollPane(fileInfoBox);
         scrollPane.setFitToHeight(true);
+        scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background-color: transparent;");
         scrollPane.setPrefHeight(80);
         scrollPane.setMinHeight(80);
-        scrollPane.setPrefViewportWidth(400);
+        scrollPane.setPrefViewportWidth(360);
+        scrollPane.setMaxWidth(360);
+        this.filenameScrollPane = scrollPane;
         HBox.setHgrow(scrollPane, Priority.ALWAYS);
 
         HBox controlBox = new HBox(undoButton, cropButton, dimensionDisplay, backButton, positionLabel, forwardButton, scrollPane);
@@ -236,6 +241,7 @@ public class Window {
     private void createOrUpdateControlWindow(final File file, final int currentIndex, final int totalFiles, final Consumer<File> onUndo, final Runnable onNavigateBack, final Runnable onNavigateForward) {
         // Create filename editor based on config
         this.filenameEditor = createFilenameEditor(file);
+        this.filenameScrollPane = null;
 
         this.undoButton = new Button("Undo");
         undoButton.setDisable(!undoManager.canUndo());
@@ -296,12 +302,15 @@ public class Window {
         // Wrap in ScrollPane to prevent button resizing when adding fields
         ScrollPane scrollPane = new ScrollPane(fileInfoBox);
         scrollPane.setFitToHeight(true);
+        scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background-color: transparent;");
         scrollPane.setPrefHeight(80);
         scrollPane.setMinHeight(80);
-        scrollPane.setPrefViewportWidth(400);
+        scrollPane.setPrefViewportWidth(360);
+        scrollPane.setMaxWidth(360);
+        this.filenameScrollPane = scrollPane;
         HBox.setHgrow(scrollPane, Priority.ALWAYS);
 
         HBox controlBox = new HBox(undoButton, cropButton, dimensionDisplay, backButton, positionLabel, forwardButton, scrollPane);
@@ -733,6 +742,21 @@ public class Window {
 
     public void repositionControlWindow() {
         positionControlWindow();
+    }
+
+    public ScrollPane getFilenameScrollPane() {
+        return filenameScrollPane;
+    }
+
+    private void applyInitialZoomToFit() {
+        if (imageCanvas == null) {
+            return;
+        }
+        final Rectangle2D bounds = Screen.getPrimary().getVisualBounds();
+        final double maxWidth = bounds.getWidth() * 0.8;
+        final double maxHeight = bounds.getHeight() * 0.8;
+        final double scale = Math.min(1.0, Math.min(maxWidth / imageCanvas.getWidth(), maxHeight / imageCanvas.getHeight()));
+        imageCanvas.zoom(scale);
     }
 
     private void handleSelectionOffsetEdit() {

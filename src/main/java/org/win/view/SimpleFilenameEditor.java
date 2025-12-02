@@ -33,11 +33,16 @@ public final class SimpleFilenameEditor extends HBox implements FilenameEditor {
         }
 
         filenameField = new TextField(nameWithoutExt);
-        filenameField.setPrefWidth(400);
+        filenameField.setPrefWidth(160);
+        filenameField.setMinWidth(120);
+        filenameField.setMaxWidth(200);
 
         extensionLabel = new Label(extension);
         extensionLabel.setStyle("-fx-text-fill: gray; -fx-padding: 5 0 0 5;");
         extensionLabel.setDisable(true);
+        extensionLabel.setMinWidth(40);
+        extensionLabel.setPrefWidth(60);
+        extensionLabel.setMaxWidth(80);
 
         getChildren().addAll(filenameField, extensionLabel);
     }

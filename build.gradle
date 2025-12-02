@@ -4,9 +4,10 @@ plugins {
     id 'idea'
     id 'org.openjfx.javafxplugin' version '0.1.0'
     id 'org.beryx.jlink' version '3.0.1'
+    id 'org.teavm' version '0.10.1'
 }
 
-version = '0.6.1'
+version = '0.7.0'
 
 repositories {
     mavenCentral()
@@ -94,15 +95,55 @@ dependencies {
     implementation 'commons-io:commons-io:2.21.0'
     implementation 'org.clojure:clojure:1.11.3'
     implementation 'com.github.iondrive-co:classifile:0.3.0'
+
+    // TeaVM/JSO only used by web stub; keep it compileOnly to avoid inflating desktop runtime
+    compileOnly 'org.teavm:teavm-jso:0.10.1'
+    compileOnly 'org.teavm:teavm-classlib:0.10.1'
+    compileOnly 'org.teavm:teavm-cli:0.10.1'
+
     testImplementation 'org.assertj:assertj-core:3.23.1'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.htmlunit:htmlunit:4.5.0'
 }
 
-tasks.withType(JavaCompile) {
+// Separate source set for web transpilation to avoid touching the modular desktop app
+sourceSets {
+    web {
+        java {
+            srcDir 'src/web/java'
+        }
+        compileClasspath += sourceSets.main.output + configurations.webImplementation + configurations.webCompileOnly + configurations.compileClasspath
+        runtimeClasspath += output + compileClasspath + configurations.webRuntimeOnly
+    }
+}
+
+configurations {
+    webImplementation {
+        canBeResolved = true
+    }
+    webCompileOnly {
+        extendsFrom compileOnly
+        canBeResolved = true
+    }
+    webRuntimeOnly {
+        canBeResolved = true
+    }
+    webRuntimeClasspath.extendsFrom runtimeClasspath
+}
+
+dependencies {
+    webImplementation 'org.teavm:teavm-jso:0.10.1'
+    webImplementation 'org.teavm:teavm-classlib:0.10.1'
+    webRuntimeOnly 'org.teavm:teavm-cli:0.10.1'
+}
+
+tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-Xlint:unchecked'
-    // Allow module to read from unnamed modules (Clojure, commons-io)
-    options.compilerArgs << '--add-reads'
-    options.compilerArgs << 'org.win=ALL-UNNAMED'
+    if (name == 'compileJava') {
+        // Allow module to read from unnamed modules (Clojure, commons-io)
+        options.compilerArgs << '--add-reads'
+        options.compilerArgs << 'org.win=ALL-UNNAMED'
+    }
 }
 
 // Handle duplicate resources in jar
@@ -144,11 +185,11 @@ tasks.register('generateScreenshot', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'org.win.test.ScreenshotGenerator'
 
-    // Add JavaFX modules
-    jvmArgs = [
-        '--module-path', classpath.asPath,
-        '--add-modules', 'javafx.controls,javafx.swing'
-    ]
+    doFirst {
+        // Put only JavaFX jars on the module-path; keep everything else on the classpath
+        def fxJars = configurations.runtimeClasspath.filter { it.name.startsWith('javafx-') }
+        jvmArgs = ['--module-path', fxJars.asPath, '--add-modules', 'javafx.controls,javafx.swing']
+    }
 
     def screenshotFile = file("${projectDir}/docs/winnow-screenshot.png")
     args screenshotFile.absolutePath, project.version
@@ -218,5 +259,141 @@ tasks.register('updateReadmeScreenshot') {
         } else {
             println "Screenshot reference already exists in README.md"
         }
+    }
+}
+
+// ============================================================================
+// Web Build Tasks
+// ============================================================================
+
+def webAppDir = file("${buildDir}/web/dist/app")
+
+task transpileWeb(type: JavaExec) {
+    group = 'web'
+    description = 'Transpile the web app to JavaScript with TeaVM CLI'
+
+    dependsOn compileWebJava
+
+    classpath = sourceSets.web.runtimeClasspath
+    mainClass = 'org.teavm.cli.TeaVMRunner'
+    args '-t', 'javascript',
+         '-d', webAppDir.absolutePath,
+         '-f', 'winnow.js',
+         '-G',
+         'org.win.browser.BrowserMain'
+
+    doFirst {
+        webAppDir.mkdirs()
+        println "Transpiling web stub with TeaVM -> ${webAppDir}/winnow.js"
+    }
+}
+
+tasks.register('buildWeb') {
+    group = 'web'
+    description = 'Build the web version'
+
+    dependsOn assemble
+    dependsOn transpileWeb
+
+    def webDir = file("${buildDir}/web")
+    def distDir = file("${webDir}/dist")
+
+    doFirst {
+        println "Building web version..."
+        distDir.mkdirs()
+    }
+
+    doLast {
+        // Create index.html
+        def indexHtml = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Winnow Web</title>
+</head>
+<body>
+  <div id="fallback" style="font-family: Arial, sans-serif; padding: 32px;">
+    <h2>Winnow Web</h2>
+    <p>If you see this, the web bundle failed to load. Please check the browser console.</p>
+  </div>
+  <script src="app/winnow.js"></script>
+  <script>
+    (function() {
+      function tryMain(entry) {
+        try {
+          entry && entry([]);
+          return true;
+        } catch (e) {
+          console.error('Failed to start app via entrypoint', e);
+          return false;
+        }
+      }
+      if (typeof main === 'function' && tryMain(main)) {
+        return;
+      }
+      if (typeof $rt_exports !== 'undefined' && typeof $rt_exports.main === 'function' && tryMain($rt_exports.main)) {
+        return;
+      }
+      if (typeof self !== 'undefined' && typeof self.main === 'function') {
+        tryMain(self.main);
+      }
+    })();
+  </script>
+</body>
+</html>'''
+
+        file("${distDir}/index.html").text = indexHtml
+
+        def transpiledJs = file("${distDir}/app/winnow.js")
+        if (!transpiledJs.exists()) {
+            println "TeaVM output not found; writing fallback JS stub."
+            transpiledJs.text = """(function(){const body=document.body;const shell=document.createElement('div');shell.innerHTML='<h2>Winnow web build</h2><p>TeaVM transpilation did not run. Replace app/winnow.js with transpiled output.</p>';body.appendChild(shell);})();"""
+        }
+
+        println ""
+        println "================================================"
+        println "Web build complete!"
+        println "Location: ${distDir.absolutePath}"
+        println "To test: ./gradlew runWeb"
+        println "================================================"
+    }
+}
+
+tasks.register('runWeb', Exec) {
+    group = 'web'
+    description = 'Start a local web server at http://localhost:8080'
+
+    dependsOn buildWeb
+
+    def distDir = file("${buildDir}/web/dist")
+    def port = project.hasProperty('port') ? project.property('port') : '8080'
+
+    workingDir distDir
+
+    doFirst {
+        def pythonCmd = ['python3', 'python'].find { cmd ->
+            try {
+                def proc = new ProcessBuilder(cmd, '--version')
+                    .redirectErrorStream(true)
+                    .start()
+                proc.waitFor() == 0
+            } catch (Exception ignored) {
+                false
+            }
+        }
+        if (pythonCmd == null) {
+            throw new GradleException("Python is required to run the web server. Please install Python 3.")
+        }
+        commandLine pythonCmd, '-m', 'http.server', port
+
+        println ""
+        println "================================================"
+        println "Starting web server at http://localhost:${port}"
+        println "Serving: ${distDir.absolutePath}"
+        println "Open http://localhost:${port} in your browser"
+        println "Press Ctrl+C to stop"
+        println "================================================"
+        println ""
     }
 }

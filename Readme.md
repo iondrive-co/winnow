@@ -1,7 +1,8 @@
 # Winnow - A multiplatform in-place image editor
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
-
+A simplified online version is available [here](https://iondrive.co/winnow). The full desktop version is available for
+mac, windows, and linux from the releases page [here](https://github.com/iondrive-co/winnow/releases). Features:
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
   directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown).
 - You will be prompted for an image directory on first launch, this will be saved to a config file in your user
@@ -45,6 +46,18 @@ The selection rectangle can be moved by dragging the green selection handle.
 
 ### Classes
 
+#### Core (`org.win.core`)
+
+Business logic (image operations, selection state, interaction control) for sharing between desktop and web platforms.
+- `PixelImage`: Platform-independent ARGB pixel array representation for image manipulation.
+- `PixelImageOps`: Shared image operations (crop, rotate, resize) using ARGB pixel manipulation.
+- `SelectionModel`: Platform-neutral selection rectangle state management.
+- `InteractionController`: Manages zoom, selection, and image manipulation state across platforms.
+- `ImageUndo`: Unified undo interface with `InMemoryImageUndo` for browser undo history.
+- `ControlViewModel`: Platform-neutral control state (filename, navigation, action bindings).
+
+#### Desktop (`org.win`)
+
 - `UndoManager`: Manages undo queue using byte-for-byte file copying to preserve image quality. Creates temp directories per session with automatic cleanup via shutdown hooks.
 - `ConfigManager`: Handles persistent user settings (last directory, last position, filename editor mode) in `~/.winnow.conf` using Java Properties format.
 - `Window`: Main UI container managing the filename editor, crop/resize/undo buttons, and file operations. Provides editable image dimensions with resize button. Consolidates common image save/rename operations. Dynamically selects between simple and predictive filename editors based on config.
@@ -54,19 +67,26 @@ The selection rectangle can be moved by dragging the green selection handle.
 - `InputDispatcher`: Centralizes keyboard shortcuts, mouse/touchscreen gestures, and zoom controls. Uses event filtering to support modifier key combinations.
 - `Main`: JavaFX Application that manages the image directory, file navigation, per-image undo managers, and application lifecycle.
 
-#### Image Quality Preservation
+#### Web (`org.win.browser`)
+
+- `BrowserMain`: Browser entry point using TeaVM transpilation. Handles DOM manipulation, File API, and event wiring.
+- `WebCanvasAdapter`: Canvas rendering adapter for web platform using HTML5 Canvas API and shared interaction state.
+
+### Image Quality Preservation
 
 - Undo operations use `Files.copy()` for byte-for-byte file copying instead of re-encoding images
 - Rotation always transforms from the original unrotated image to avoid cumulative quality loss
 - Cumulative rotation tracking prevents canvas size drift during rotation
 - Resize operations use bicubic interpolation for high-quality scaling
 
-#### Per-Image State Management
+### Per-Image State Management
+
 - Each image gets its own UndoManager instance (tracked by position index)
 - File renames tracked through undo operations to support correct restoration
 - Config file remembers last directory and position for seamless session resumption
 
-#### Zoom and Selection Management
+### Zoom and Selection Management
+
 - Selection rectangle visibility is maintained when zooming beyond window bounds
 - Visible canvas bounds calculated dynamically based on scene size and zoom scale
 - Selection dimensions in control panel reflect actual visible image area, not full selection
@@ -74,9 +94,25 @@ The selection rectangle can be moved by dragging the green selection handle.
 
 ## Building and Packaging
 
+### Web Version
+
+Build and run the web version locally:
+
+```bash
+# Build web version (compiles Java to JavaScript via TeaVM)
+./gradlew buildWeb
+
+# Run local web server on http://localhost:8080
+./gradlew runWeb
+```
+
+The web build output is located at `build/web/dist/`. The `runWeb` task starts a Python HTTP server (Python 3 required).
+
+### Desktop Version
+
 Follow these steps to manually create packages you can install on linux, mac, and windows for testing.
 
-### Prerequisites
+#### Prerequisites
 - JDK 17 or later (with jpackage support)
 - Gradle 8.0+ (included via wrapper)
 - For windows builds, as administrator you will first need to install: winget install --id=WiXToolset.WiXToolset

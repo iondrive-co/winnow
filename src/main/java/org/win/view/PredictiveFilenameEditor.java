@@ -42,7 +42,9 @@ public final class PredictiveFilenameEditor extends HBox implements FilenameEdit
                 comboBox.getItems().addAll(component.suggestions);
             }
 
-            comboBox.setPrefWidth(150);
+            comboBox.setPrefWidth(120);
+            comboBox.setMinWidth(100);
+            comboBox.setMaxWidth(140);
             componentFields.add(comboBox);
             getChildren().add(comboBox);
 
@@ -51,7 +53,8 @@ public final class PredictiveFilenameEditor extends HBox implements FilenameEdit
                 final String separator = parsedFilename.separators.get(i);
                 final TextField separatorField = new TextField();
                 separatorField.setText(separator != null ? separator : "");
-                separatorField.setPrefWidth(30);
+                separatorField.setPrefWidth(26);
+                separatorField.setMaxWidth(30);
                 separatorField.setStyle("-fx-padding: 5 2 0 2;");
                 separatorFields.add(separatorField);
                 getChildren().add(separatorField);
@@ -74,7 +77,8 @@ public final class PredictiveFilenameEditor extends HBox implements FilenameEdit
     private void addNewComponent() {
         // Create separator field with default separator
         final TextField separatorField = new TextField("-");
-        separatorField.setPrefWidth(30);
+        separatorField.setPrefWidth(26);
+        separatorField.setMaxWidth(30);
         separatorField.setStyle("-fx-padding: 5 2 0 2;");
         separatorFields.add(separatorField);
 
@@ -82,7 +86,9 @@ public final class PredictiveFilenameEditor extends HBox implements FilenameEdit
         final ComboBox<String> comboBox = new ComboBox<>();
         comboBox.setEditable(true);
         comboBox.setValue("");
-        comboBox.setPrefWidth(150);
+        comboBox.setPrefWidth(120);
+        comboBox.setMinWidth(100);
+        comboBox.setMaxWidth(140);
         componentFields.add(comboBox);
 
         // Insert before the last two children (+ button and extension label)
