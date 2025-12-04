@@ -1,6 +1,7 @@
 # Winnow - A multiplatform in-place image editor
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
+
 A simplified online version is available [here](https://iondrive.co/winnow). The full desktop version is available for
 mac, windows, and linux from the releases page [here](https://github.com/iondrive-co/winnow/releases). Features:
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp

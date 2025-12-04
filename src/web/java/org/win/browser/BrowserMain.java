@@ -150,7 +150,13 @@ public final class BrowserMain {
         canvasHost.appendChild(selectionOverlay);
 
         canvasHost.addEventListener("wheel", (EventListener<WheelEvent>) evt -> {
+            // Prevent default first to stop page zoom
             evt.preventDefault();
+            evt.stopPropagation();
+
+            // Only zoom picture if we have an image
+            if (currentIndex < 0) return;
+
             final double factor = evt.getDeltaY() < 0 ? 1.1 : 0.9;
             adjustZoom(factor);
         });
@@ -160,6 +166,15 @@ public final class BrowserMain {
     }
 
     private void wireHandlers() {
+        // Prevent browser zoom on wheel events document-wide
+        doc.addEventListener("wheel", (EventListener<WheelEvent>) evt -> {
+            // Prevent default browser zoom behavior (Ctrl+scroll)
+            // Check if ctrl key is pressed using getCtrlKey() method
+            if (evt.getCtrlKey()) {
+                evt.preventDefault();
+            }
+        });
+
         canvas.addEventListener("mousedown", (EventListener<MouseEvent>) evt -> {
             if (currentIndex < 0) return;
             dragging = true;
@@ -200,7 +215,16 @@ public final class BrowserMain {
                 controls.triggerRotate(-5);
             } else if (ctrl && code == 69) { // Ctrl+E rotate right
                 controls.triggerRotate(5);
-            } else if (canvasAdapter != null && SelectionAdjuster.applyShortcut(code, ctrl, shift, 10, canvasAdapter.controller().selection())) {
+            } else if (canvasAdapter != null && canvasAdapter.controller() != null && SelectionAdjuster.applyShortcut(code, ctrl, shift, 10, canvasAdapter.controller().selection())) {
+                updateSelectionOverlay();
+            }
+        });
+
+        // Handle window resize (e.g., when dev tools open/close)
+        getWindow().addEventListener("resize", evt -> {
+            if (hasImage()) {
+                updateViewportSize();
+                canvasAdapter.setImage(currentImage());
                 updateSelectionOverlay();
             }
         });
@@ -239,10 +263,39 @@ public final class BrowserMain {
     private void displayCurrentImage() {
         if (currentIndex < 0 || currentIndex >= images.size()) return;
 
+        // Update viewport size based on available window space
+        updateViewportSize();
+
         final PixelImage image = images.get(currentIndex).image();
         canvasAdapter.setImage(image);
         updateFilenameAndStatus();
         updateSelectionOverlay();
+    }
+
+    private void updateViewportSize() {
+        // Get actual canvas-host dimensions to ensure canvas buffer matches displayed size
+        final int hostWidth = (int) getElementClientWidth(canvasHost);
+        final int hostHeight = (int) getElementClientHeight(canvasHost);
+
+        // Use actual host dimensions if available, otherwise fall back to calculated viewport
+        final int viewportWidth;
+        final int viewportHeight;
+        if (hostWidth > 0 && hostHeight > 0) {
+            viewportWidth = hostWidth;
+            viewportHeight = hostHeight;
+        } else {
+            // Fallback for initial load before layout is complete
+            // Use conservative percentages to ensure controls remain visible without scrolling
+            final int windowWidth = getWindowInnerWidth();
+            final int windowHeight = getWindowInnerHeight();
+            viewportWidth = Math.min(1200, (int) (windowWidth * 0.85));
+            viewportHeight = Math.min(800, (int) (windowHeight * 0.55));
+        }
+
+        final int finalWidth = Math.max(400, viewportWidth);
+        final int finalHeight = Math.max(300, viewportHeight);
+
+        canvasAdapter.setViewportSize(finalWidth, finalHeight);
     }
 
     private void updateSelectionOverlay() {
@@ -250,10 +303,20 @@ public final class BrowserMain {
             hideSelectionOverlay();
             return;
         }
+
+        // Force a layout reflow to ensure canvas is properly sized and positioned
+        // before calculating selection overlay position
+        forceLayoutReflow(canvas);
+        forceLayoutReflow(canvasHost);
+
         final SelectionModel selection = canvasAdapter.controller().selection();
         final double zoom = canvasAdapter.controller().zoom();
-        final double left = selection.getTopLeftX() * zoom;
-        final double top = selection.getTopLeftY() * zoom;
+        final double[] offset = canvasAdapter.getImageOffset();
+
+        // Both canvas and selection overlay are children of canvas-host,
+        // positioned in its content area, so they should align directly
+        final double left = selection.getTopLeftX() * zoom + offset[0];
+        final double top = selection.getTopLeftY() * zoom + offset[1];
         final double width = selection.getWidth() * zoom;
         final double height = selection.getHeight() * zoom;
 
@@ -359,27 +422,31 @@ public final class BrowserMain {
         final double zoom = canvasAdapter != null && canvasAdapter.controller() != null
             ? canvasAdapter.controller().zoom()
             : InteractionController.DEFAULT_ZOOM;
-        return (evt.getClientX() - canvas.getBoundingClientRect().getLeft()) / zoom;
+        final double[] offset = canvasAdapter != null ? canvasAdapter.getImageOffset() : new double[]{0, 0};
+        return (evt.getClientX() - canvas.getBoundingClientRect().getLeft() - offset[0]) / zoom;
     }
 
     private double canvasY(final MouseEvent evt) {
         final double zoom = canvasAdapter != null && canvasAdapter.controller() != null
             ? canvasAdapter.controller().zoom()
             : InteractionController.DEFAULT_ZOOM;
-        return (evt.getClientY() - canvas.getBoundingClientRect().getTop()) / zoom;
+        final double[] offset = canvasAdapter != null ? canvasAdapter.getImageOffset() : new double[]{0, 0};
+        return (evt.getClientY() - canvas.getBoundingClientRect().getTop() - offset[1]) / zoom;
     }
 
     private PixelImage htmlImageToPixelImage(final HTMLImageElement img) {
         final HTMLCanvasElement tempCanvas = (HTMLCanvasElement) doc.createElement("canvas");
-        tempCanvas.setWidth((int) img.getWidth());
-        tempCanvas.setHeight((int) img.getHeight());
+        final int width = img.getNaturalWidth();
+        final int height = img.getNaturalHeight();
+        tempCanvas.setWidth(width);
+        tempCanvas.setHeight(height);
         final CanvasRenderingContext2D tempCtx = (CanvasRenderingContext2D) tempCanvas.getContext("2d");
         tempCtx.drawImage(img, 0, 0);
 
-        final org.teavm.jso.canvas.ImageData data = tempCtx.getImageData(0, 0, (int) img.getWidth(), (int) img.getHeight());
+        final org.teavm.jso.canvas.ImageData data = tempCtx.getImageData(0, 0, width, height);
         final org.teavm.jso.typedarrays.Uint8ClampedArray arr = data.getData();
 
-        final PixelImage result = new PixelImage((int) img.getWidth(), (int) img.getHeight());
+        final PixelImage result = new PixelImage(width, height);
         final int[] pixels = result.getPixels();
         for (int i = 0; i < pixels.length; i++) {
             final int idx = i * 4;
@@ -726,6 +793,24 @@ public final class BrowserMain {
             reader.readAsDataURL(file);
             """)
     private static native void readFileAsDataURL(JSObject file, StringCallback callback);
+
+    @JSBody(script = "return window.innerWidth || document.documentElement.clientWidth;")
+    private static native int getWindowInnerWidth();
+
+    @JSBody(script = "return window.innerHeight || document.documentElement.clientHeight;")
+    private static native int getWindowInnerHeight();
+
+    @JSBody(params = {"element"}, script = "element.getBoundingClientRect();")
+    private static native void forceLayoutReflow(HTMLElement element);
+
+    @JSBody(params = {"element"}, script = "return element.clientWidth;")
+    private static native double getElementClientWidth(HTMLElement element);
+
+    @JSBody(params = {"element"}, script = "return element.clientHeight;")
+    private static native double getElementClientHeight(HTMLElement element);
+
+    @JSBody(script = "return window;")
+    private static native org.teavm.jso.dom.events.EventTarget getWindow();
 
     @JSBody(script = ""
             + "var style = document.createElement('style');"

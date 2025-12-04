@@ -21,6 +21,7 @@ public class ConfigPersistenceTest {
 
     private Path tempConfigFile;
     private String originalUserHome;
+    private String originalConfigHome;
 
     @Before
     public void setUp() throws IOException {
@@ -30,13 +31,20 @@ public class ConfigPersistenceTest {
 
         // Override user.home system property
         originalUserHome = System.getProperty("user.home");
+        originalConfigHome = System.getProperty("winnow.configHome");
         System.setProperty("user.home", tempDir.toString());
+        System.setProperty("winnow.configHome", tempDir.toString());
     }
 
     @After
     public void tearDown() throws IOException {
         // Restore original user.home
         System.setProperty("user.home", originalUserHome);
+        if (originalConfigHome != null) {
+            System.setProperty("winnow.configHome", originalConfigHome);
+        } else {
+            System.clearProperty("winnow.configHome");
+        }
 
         // Clean up temp config file and directory
         if (Files.exists(tempConfigFile)) {

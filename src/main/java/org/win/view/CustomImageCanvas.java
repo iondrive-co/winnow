@@ -43,6 +43,10 @@ public class CustomImageCanvas extends Canvas {
     private java.util.function.Consumer<Double> onNavigationDrag;
     private double navigationDragStartX;
     private Runnable onSelectionChange;
+    private javafx.beans.value.ChangeListener<Number> sceneWidthListener;
+    private javafx.beans.value.ChangeListener<Number> sceneHeightListener;
+    private javafx.scene.Scene lastScene;
+    private javafx.animation.PauseTransition redrawDebouncer;
 
     public CustomImageCanvas(final BufferedImage image) {
         super(image.getWidth(), image.getHeight());
@@ -61,16 +65,52 @@ public class CustomImageCanvas extends Canvas {
         drawImage();
         drawROI();
 
-        // Redraw when scene is attached and has valid dimensions
-        // This ensures selection rectangle is visible on initial display
+        // Set up scene change listener to redraw when scene has valid dimensions
+        // This ensures handles are positioned correctly after zoom-to-fit and navigation
         sceneProperty().addListener((observable, oldScene, newScene) -> {
+            // Remove listeners from old scene to prevent memory leaks
+            if (lastScene != null) {
+                if (sceneWidthListener != null) {
+                    lastScene.widthProperty().removeListener(sceneWidthListener);
+                }
+                if (sceneHeightListener != null) {
+                    lastScene.heightProperty().removeListener(sceneHeightListener);
+                }
+            }
+
             if (newScene != null) {
-                // Wait for scene to have valid dimensions before redrawing
-                newScene.widthProperty().addListener((obs, oldWidth, newWidth) -> {
-                    if (newWidth.doubleValue() > 0 && newScene.getHeight() > 0) {
-                        javafx.application.Platform.runLater(this::redraw);
-                    }
-                });
+                // Check if scene already has valid dimensions
+                if (newScene.getWidth() > 0 && newScene.getHeight() > 0) {
+                    // Scene has valid dimensions, redraw immediately
+                    javafx.application.Platform.runLater(this::redraw);
+                } else {
+                    // Shared runnable to check and redraw whenever dimensions change
+                    // Use debouncing to avoid excessive redraws during rapid dimension changes
+                    final Runnable checkAndRedraw = () -> {
+                        if (newScene.getWidth() > 0 && newScene.getHeight() > 0) {
+                            // Debounce redraws - wait 50ms for dimensions to stabilize
+                            if (redrawDebouncer != null) {
+                                redrawDebouncer.stop();
+                            }
+
+                            redrawDebouncer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(50));
+                            redrawDebouncer.setOnFinished(e -> {
+                                redraw();
+                                redrawDebouncer = null;
+                            });
+                            redrawDebouncer.play();
+                        }
+                    };
+
+                    // Listen for width changes
+                    sceneWidthListener = (obs, oldWidth, newWidth) -> checkAndRedraw.run();
+                    newScene.widthProperty().addListener(sceneWidthListener);
+
+                    // Listen for height changes
+                    sceneHeightListener = (obs, oldHeight, newHeight) -> checkAndRedraw.run();
+                    newScene.heightProperty().addListener(sceneHeightListener);
+                }
+                lastScene = newScene;
             }
         });
 
@@ -299,10 +339,10 @@ public class CustomImageCanvas extends Canvas {
     }
 
     private void handleMousePressed(MouseEvent event) {
-        // Convert from screen coordinates to canvas coordinates
-        final double scale = getScaleX();
-        double x = event.getX() / scale;
-        double y = event.getY() / scale;
+        // Event coordinates are already in canvas's local coordinate system (no scale conversion needed)
+        final double x = event.getX();
+        final double y = event.getY();
+
         prevX = x;
         prevY = y;
         mousePressX = x;
@@ -338,10 +378,9 @@ public class CustomImageCanvas extends Canvas {
 
     private void handleMouseDragged(MouseEvent event) {
         if (dragging) {
-            // Convert from screen coordinates to canvas coordinates
-            final double scale = getScaleX();
-            double x = event.getX() / scale;
-            double y = event.getY() / scale;
+            // Event coordinates are already in canvas's local coordinate system
+            double x = event.getX();
+            double y = event.getY();
             double dx = x - prevX;
             double dy = y - prevY;
 
@@ -435,9 +474,9 @@ public class CustomImageCanvas extends Canvas {
     }
 
     private void handleMouseReleased(MouseEvent event) {
-        final double scale = getScaleX();
-        final double x = event.getX() / scale;
-        final double y = event.getY() / scale;
+        // Event coordinates are already in canvas's local coordinate system
+        final double x = event.getX();
+        final double y = event.getY();
 
         if (selectedCorner == Corner.ROTATE) {
             // Calculate distance moved to determine if it's a click or drag
@@ -774,6 +813,31 @@ public class CustomImageCanvas extends Canvas {
                 scaledRotationHandleSize, scale);
 
         return new double[]{handlePos[0], handlePos[1], scaledRotationHandleSize, scaledRotationHandleSize};
+    }
+
+    // For testing - returns move handle bounds [x, y, width, height]
+    public double[] getMoveHandleBounds() {
+        final double scale = Math.max(getScaleX(), 0.1);
+        final double scaledMoveHandleSize = MOVE_HANDLE_SIZE / scale;
+        final double scaledMoveHandlePadding = MOVE_HANDLE_PADDING / scale;
+
+        final double[] visibleSelection = getVisibleSelection();
+        final double visibleLeft = visibleSelection[0];
+        final double visibleTop = visibleSelection[1];
+        final double visibleRight = visibleSelection[2];
+
+        final double[] visibleBounds = getVisibleCanvasBounds();
+        final double canvasVisibleTop = visibleBounds[1];
+
+        double moveHandleX = (visibleLeft + visibleRight) / 2 - scaledMoveHandleSize / 2;
+        double moveHandleY = visibleTop - scaledMoveHandlePadding - scaledMoveHandleSize;
+
+        // If handle would be off visible canvas, position it inside the selection at the top
+        if (moveHandleY < canvasVisibleTop) {
+            moveHandleY = visibleTop + scaledMoveHandlePadding;
+        }
+
+        return new double[]{moveHandleX, moveHandleY, scaledMoveHandleSize, scaledMoveHandleSize};
     }
 
     private double[] getVisibleCanvasBounds() {

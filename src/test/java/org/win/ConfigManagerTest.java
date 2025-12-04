@@ -25,6 +25,7 @@ public class ConfigManagerTest {
 
         // Override user.home system property
         originalUserHome = System.getProperty("user.home");
+        System.setProperty("winnow.configHome", tempDir.toString());
         System.setProperty("user.home", tempDir.toString());
     }
 
@@ -32,6 +33,7 @@ public class ConfigManagerTest {
     public void tearDown() throws IOException {
         // Restore original user.home
         System.setProperty("user.home", originalUserHome);
+        System.clearProperty("winnow.configHome");
 
         // Clean up temp config file and directory
         if (Files.exists(tempConfigFile)) {

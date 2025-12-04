@@ -28,6 +28,7 @@ public class ResizeTest {
 
     private File tempDir;
     private UndoManager undoManager;
+    private String originalConfigHome;
 
     @BeforeClass
     public static void initToolkit() {
@@ -39,6 +40,8 @@ public class ResizeTest {
         tempDir = Files.createTempDirectory("winnow-resize-test").toFile();
         tempDir.deleteOnExit();
         undoManager = new UndoManager();
+        originalConfigHome = System.getProperty("winnow.configHome");
+        System.setProperty("winnow.configHome", tempDir.getAbsolutePath());
     }
 
     @After
@@ -54,6 +57,11 @@ public class ResizeTest {
                 }
             }
             tempDir.delete();
+        }
+        if (originalConfigHome != null) {
+            System.setProperty("winnow.configHome", originalConfigHome);
+        } else {
+            System.clearProperty("winnow.configHome");
         }
     }
 

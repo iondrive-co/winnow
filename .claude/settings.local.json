@@ -37,7 +37,9 @@
       "Bash(timeout 5 echo:*)",
       "Bash(git add:*)",
       "Bash(build/image/bin/winnow-screenshot:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []

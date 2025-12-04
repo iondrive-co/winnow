@@ -47,6 +47,16 @@ public final class InteractionController {
         zoom = Math.max(MIN_ZOOM, Math.min(zoom * factor, MAX_ZOOM));
     }
 
+    public void setZoom(final double newZoom) {
+        zoom = Math.max(MIN_ZOOM, Math.min(newZoom, MAX_ZOOM));
+    }
+
+    public void zoomToFit(final int viewportWidth, final int viewportHeight) {
+        final double scaleX = viewportWidth / (double) image.getWidth();
+        final double scaleY = viewportHeight / (double) image.getHeight();
+        setZoom(Math.min(1.0, Math.min(scaleX, scaleY)));
+    }
+
     public void startSelection(final double x, final double y) {
         selection.setRegion(x, y, x, y);
     }

@@ -7,7 +7,7 @@ plugins {
     id 'org.teavm' version '0.10.1'
 }
 
-version = '0.7.0'
+version = '0.7.1'
 
 repositories {
     mavenCentral()
@@ -362,16 +362,26 @@ tasks.register('buildWeb') {
 
 tasks.register('runWeb', Exec) {
     group = 'web'
-    description = 'Start a local web server at http://localhost:8080'
+    description = 'Start a local web server on a random ephemeral port'
 
     dependsOn buildWeb
 
     def distDir = file("${buildDir}/web/dist")
-    def port = project.hasProperty('port') ? project.property('port') : '8080'
 
     workingDir distDir
 
     doFirst {
+        // Find an available ephemeral port
+        def port
+        if (project.hasProperty('port')) {
+            port = project.property('port')
+        } else {
+            // Use a ServerSocket with port 0 to get a random available port
+            def serverSocket = new ServerSocket(0)
+            port = serverSocket.getLocalPort()
+            serverSocket.close()
+        }
+
         def pythonCmd = ['python3', 'python'].find { cmd ->
             try {
                 def proc = new ProcessBuilder(cmd, '--version')

@@ -21,7 +21,12 @@ public class ConfigManager {
     private final Properties properties;
 
     public ConfigManager() throws IOException {
-        Path homeDir = Paths.get(System.getProperty("user.home"));
+        final String overrideHome = System.getProperty("winnow.configHome");
+        final String home = (overrideHome != null && !overrideHome.isBlank())
+                ? overrideHome
+                : System.getProperty("user.home");
+
+        Path homeDir = Paths.get(home);
         this.configPath = homeDir.resolve(CONFIG_FILE);
         this.properties = new Properties();
 
