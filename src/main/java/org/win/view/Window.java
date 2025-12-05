@@ -74,6 +74,9 @@ public class Window {
         final ImageProcessor imageProcessor = imagePlus.getProcessor();
         imageCanvas = new CustomImageCanvas(imageProcessor.getBufferedImage());
 
+        // Detect region of interest and set initial selection
+        detectAndSetInitialSelection(file);
+
         imageCanvas.setOnRotationComplete(rotationAmount -> {
             try {
                 saveImageOperation(imageCanvas.getCurrentImage());
@@ -457,18 +460,26 @@ public class Window {
             // Only resize if:
             // 1. Scene has valid dimensions (> 10 to avoid Gtk warnings)
             // 2. Current stage dimensions are valid (> 10)
+            // 3. Stage is showing (to avoid resize during initialization)
             if (sceneWidth > 10 && sceneHeight > 10 &&
-                currentWidth > 10 && currentHeight > 10) {
+                currentWidth > 10 && currentHeight > 10 &&
+                controlStage.isShowing()) {
                 try {
-                    controlStage.sizeToScene();
+                    // Additional safety check: ensure computed scene dimensions are valid
+                    final double computedWidth = controlStage.getScene().getRoot().prefWidth(-1);
+                    final double computedHeight = controlStage.getScene().getRoot().prefHeight(-1);
 
-                    // Verify the resize succeeded
-                    final double newWidth = controlStage.getWidth();
-                    final double newHeight = controlStage.getHeight();
-                    if (newWidth <= 0 || newHeight <= 0) {
-                        // Revert to previous valid dimensions
-                        controlStage.setWidth(Math.max(currentWidth, 100));
-                        controlStage.setHeight(Math.max(currentHeight, 50));
+                    if (computedWidth > 0 && computedHeight > 0) {
+                        controlStage.sizeToScene();
+
+                        // Verify the resize succeeded
+                        final double newWidth = controlStage.getWidth();
+                        final double newHeight = controlStage.getHeight();
+                        if (newWidth <= 0 || newHeight <= 0) {
+                            // Revert to previous valid dimensions
+                            controlStage.setWidth(Math.max(currentWidth, 100));
+                            controlStage.setHeight(Math.max(currentHeight, 50));
+                        }
                     }
                 } catch (Exception e) {
                     // Ignore GTK errors during resize
@@ -973,5 +984,34 @@ public class Window {
         }
 
         return FilenameClassifier.buildModel(Arrays.asList(filenames));
+    }
+
+    private void detectAndSetInitialSelection(final File file) {
+        if (imageCanvas == null) {
+            return;
+        }
+
+        try {
+            final iondrive.smoosh.PersonDetector detector = new iondrive.smoosh.PersonDetector();
+            final java.util.List<iondrive.smoosh.PersonDetector.Detection> detections =
+                detector.detectPeople(file.getAbsolutePath());
+
+            if (!detections.isEmpty()) {
+                // Select the detection with highest confidence
+                iondrive.smoosh.PersonDetector.Detection bestDetection = detections.get(0);
+                for (final iondrive.smoosh.PersonDetector.Detection detection : detections) {
+                    if (detection.confidence > bestDetection.confidence) {
+                        bestDetection = detection;
+                    }
+                }
+
+                final java.awt.Rectangle roi = bestDetection.bbox;
+                if (roi.width > 0 && roi.height > 0) {
+                    imageCanvas.setSelectionRegion(roi.x, roi.y, roi.x + roi.width, roi.y + roi.height);
+                }
+            }
+        } catch (final Exception e) {
+            System.err.println("ROI detection failed: " + e.getMessage());
+        }
     }
 }

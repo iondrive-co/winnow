@@ -39,7 +39,9 @@
       "Bash(build/image/bin/winnow-screenshot:*)",
       "Bash(git log:*)",
       "WebSearch",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(jar tf:*)",
+      "Bash(javap:*)"
     ],
     "deny": [],
     "ask": []

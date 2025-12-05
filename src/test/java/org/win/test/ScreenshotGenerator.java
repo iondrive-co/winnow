@@ -204,7 +204,7 @@ public final class ScreenshotGenerator extends Application {
 
         // Add arrows and labels pointing to UI components
         // Rotation handle - pointing to top-right area where handle is positioned
-        addAnnotation(g2d, screenshotX + 1075, screenshotY - 40, screenshotX + 1075, screenshotY + 15,
+        addAnnotation(g2d, screenshotX + 1040, screenshotY - 40, screenshotX + 1040, screenshotY + 15,
                       "Rotation handle", true);
         // Selection rectangle - pointing to top edge of selection
         addAnnotation(g2d, screenshotX + 500, screenshotY - 40, screenshotX + 500, screenshotY + 5,

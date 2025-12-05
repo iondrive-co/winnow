@@ -2,13 +2,20 @@
 
 ![Winnow Screenshot](docs/winnow-screenshot.png)
 
+
+
+
+
+
 A simplified online version is available [here](https://iondrive.co/winnow). The full desktop version is available for
 mac, windows, and linux from the releases page [here](https://github.com/iondrive-co/winnow/releases). Features:
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
   directory (/tmp on linux, %TEMP% on windows) which is cleared on shutdown).
+- Intelligent initial selection based on detected people.
 - You will be prompted for an image directory on first launch, this will be saved to a config file in your user
   directory (i.e. ~/.winnow.conf on linux, %userprofile%/.winnow.conf on windows) so you will not be prompted again.
-- The file can be renamed by typing a new name in the combo box at the bottom, which is populated with frequently
+  The directory can be changed at any time by clicking or touching the directory path in the control window.
+- The image file can be renamed by typing a new name in the combo box at the bottom, which is populated with frequently
   chosen values from the directory. If there is a filename pattern this will attempt to parse it and break the input
   into multiple selection boxes if necessary, predicting the most likely name based on frequency. Additional components
   can be added dynamically via the "+" button before the file extension. To turn off predictive editing and use a
@@ -168,7 +175,7 @@ You can also create installers manually for specific platforms:
 - Installers: `build/jpackage/`
 - JAR: `build/libs/`
 
-### Troubleshooting Installation Issues
+### Troubleshooting
 
 On linux, if the installed application doesn't launch, run it from the terminal:
 
@@ -177,3 +184,7 @@ dpkg -L winnow | grep bin
 # Use the path from that here, for example:
 /opt/winnow/bin/Winnow
 ```
+
+When using the web app in browsers with fingerprint protection, you will need to enable this:
+
+![Allow canvas image data](docs/canvas.png)

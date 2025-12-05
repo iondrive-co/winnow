@@ -1,7 +1,7 @@
 Upcoming:
-- 0.7 release packaging, web version
-- 0.8 frequent directory dropdown to change target for image save
-- 0.9 replace arrow buttons with rename, cleanup positioning, bugfixes
+- 0.8.1 frequent directory dropdown to change target for image save
+- 0.8.2 replace arrow buttons with rename, cleanup positioning,
+- 0.9  bugfixes
 
 Done:
 - 0.1 Select and change directory, navigate, crop, rotate, package, config
@@ -10,3 +10,5 @@ Done:
 - 0.4 Editable x y offsets
 - 0.5 Edit picture size numbers to resize
 - 0.6 Better rotation and selection icons, implement drag rotation
+- 0.7 release packaging, web version
+- 0.8 integrate with smoosh

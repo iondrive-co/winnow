@@ -7,7 +7,7 @@ plugins {
     id 'org.teavm' version '0.10.1'
 }
 
-version = '0.7.1'
+version = '0.8.0'
 
 repositories {
     mavenCentral()
@@ -35,7 +35,7 @@ jlink {
     options = ['--strip-debug', '--compress=2', '--no-header-files', '--no-man-pages']
 
     // Merge all non-modular dependencies into the application module
-    forceMerge 'clojure', 'ij', 'commons'
+    forceMerge 'clojure', 'ij', 'commons', 'smoosh', 'opencv'
 
     launcher {
         name = 'winnow'
@@ -95,6 +95,8 @@ dependencies {
     implementation 'commons-io:commons-io:2.21.0'
     implementation 'org.clojure:clojure:1.11.3'
     implementation 'com.github.iondrive-co:classifile:0.3.0'
+    implementation 'com.github.iondrive-co:smoosh:0.2.1'
+    implementation 'org.openpnp:opencv:4.9.0-0'  // Required by smoosh for person detection
 
     // TeaVM/JSO only used by web stub; keep it compileOnly to avoid inflating desktop runtime
     compileOnly 'org.teavm:teavm-jso:0.10.1'
