@@ -426,4 +426,136 @@ public class WindowTest {
 
         assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
     }
+
+    @Test
+    public void testDestinationDirectory_defaultsToSourceDirectory() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                // Verify destination directory defaults to source directory
+                assertThat(window.getDestinationDirectory()).isEqualTo(testFile.getParentFile());
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testSaveToDestination_savesImageToDestinationDirectory() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                // Create a destination directory
+                final File destDir = File.createTempFile("dest-dir", "");
+                destDir.delete();
+                destDir.mkdir();
+                destDir.deleteOnExit();
+
+                // Set destination directory
+                window.setDestinationDirectory(destDir);
+
+                // Save image to destination
+                window.saveToDestination();
+
+                // Verify file was saved to destination
+                final File[] files = destDir.listFiles();
+                assertThat(files).isNotNull();
+                assertThat(files).hasSizeGreaterThan(0);
+
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testSaveToDestination_whenSameDirectorySameName_doesNothing() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                final long lastModified = testFile.lastModified();
+
+                // Wait a bit to ensure modification time would change if file was written
+                Thread.sleep(100);
+
+                // Save with same directory and same name
+                window.saveToDestination();
+
+                // Verify file was not modified (no save occurred)
+                assertThat(testFile.lastModified()).isEqualTo(lastModified);
+
+                latch.countDown();
+            } catch (final IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testSaveImageButton_isCreated() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                assertThat(window.getSaveImageButton()).isNotNull();
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    @Test
+    public void testDestinationDirectoryLabel_isCreated() throws Exception {
+        final File testFile = getTestImageFile();
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        Platform.runLater(() -> {
+            try {
+                final Window window = new Window();
+                final UndoManager undoManager = new UndoManager();
+                window.displayFile(null, testFile, 1, 5, null, undoManager, null, null, null);
+
+                assertThat(window.getDestinationDirectoryLabel()).isNotNull();
+                latch.countDown();
+            } catch (final IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    }
 }

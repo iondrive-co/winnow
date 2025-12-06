@@ -7,6 +7,7 @@
 
 
 
+
 A simplified online version is available [here](https://iondrive.co/winnow). The full desktop version is available for
 mac, windows, and linux from the releases page [here](https://github.com/iondrive-co/winnow/releases). Features:
 - Edits to crop, resize, rename, and rotate images, applied immediately on disk (there is an undo queue kept in the temp
@@ -68,7 +69,7 @@ Business logic (image operations, selection state, interaction control) for shar
 
 - `UndoManager`: Manages undo queue using byte-for-byte file copying to preserve image quality. Creates temp directories per session with automatic cleanup via shutdown hooks.
 - `ConfigManager`: Handles persistent user settings (last directory, last position, filename editor mode) in `~/.winnow.conf` using Java Properties format.
-- `Window`: Main UI container managing the filename editor, crop/resize/undo buttons, and file operations. Provides editable image dimensions with resize button. Consolidates common image save/rename operations. Dynamically selects between simple and predictive filename editors based on config.
+- `Window`: Main UI container managing the filename editor, crop/resize/undo buttons, destination directory selector, and file operations. Provides editable image dimensions with resize button. Consolidates common image save/rename operations. Supports saving images to a destination directory. Dynamically selects between simple and predictive filename editors based on config.
 - `PredictiveFilenameEditor`: Parses filenames into components with dropdown suggestions. Displays editable separators between components. Includes a "+" button to dynamically add new filename components.
 - `SimpleFilenameEditor`: Single text field filename editor with non-editable extension label.
 - `CustomImageCanvas`: Interactive JavaFX Canvas for image display with selection ROI, rotation, and resizing. Converts ImageJ BufferedImages to JavaFX format. Maintains original image copy for quality-preserving rotation. Uses bicubic interpolation for high-quality resizing. Implements intelligent selection rectangle clamping when zoomed past window bounds.

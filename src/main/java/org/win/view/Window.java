@@ -45,6 +45,9 @@ public class Window {
     private TextField selectionWidthField;
     private TextField selectionHeightField;
     private Label directoryLabel;
+    private Label destinationDirectoryLabel;
+    private Button saveImageButton;
+    private File destinationDirectory;
     private Runnable onDirectoryChange;
     private org.win.ConfigManager configManager;
     private boolean updatingDimensionDisplay = false;
@@ -69,6 +72,11 @@ public class Window {
         this.onFileRenamed = onFileRenamed;
         this.imageStage = imageStage;
         this.onDirectoryChange = onDirectoryChange;
+
+        // Initialize destination directory to source directory
+        if (this.destinationDirectory == null || !this.destinationDirectory.equals(file.getParentFile())) {
+            this.destinationDirectory = file.getParentFile();
+        }
 
         final ImagePlus imagePlus = new Opener().openImage(file.getAbsolutePath());
         final ImageProcessor imageProcessor = imagePlus.getProcessor();
@@ -179,9 +187,10 @@ public class Window {
 
         VBox dimensionDisplay = createDimensionDisplay();
 
-        // Create filename section with directory above
-        Label dirLabel = createDirectoryLabel(file);
-        VBox fileInfoBox = new VBox(dirLabel, (HBox) filenameEditor);
+        // Create filename section with directory above and destination below
+        HBox dirLabel = createDirectoryLabel(file);
+        HBox destRow = createDestinationDirectoryRow();
+        VBox fileInfoBox = new VBox(dirLabel, (HBox) filenameEditor, destRow);
         fileInfoBox.setSpacing(2);
         fileInfoBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -192,8 +201,8 @@ public class Window {
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background-color: transparent;");
-        scrollPane.setPrefHeight(80);
-        scrollPane.setMinHeight(80);
+        scrollPane.setPrefHeight(100);
+        scrollPane.setMinHeight(100);
         scrollPane.setPrefViewportWidth(360);
         scrollPane.setMaxWidth(360);
         this.filenameScrollPane = scrollPane;
@@ -296,9 +305,10 @@ public class Window {
 
         VBox dimensionDisplay = createDimensionDisplay();
 
-        // Create filename section with directory above
-        Label dirLabel = createDirectoryLabel(file);
-        VBox fileInfoBox = new VBox(dirLabel, (HBox) filenameEditor);
+        // Create filename section with directory above and destination below
+        HBox dirLabel = createDirectoryLabel(file);
+        HBox destRow = createDestinationDirectoryRow();
+        VBox fileInfoBox = new VBox(dirLabel, (HBox) filenameEditor, destRow);
         fileInfoBox.setSpacing(2);
         fileInfoBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -309,8 +319,8 @@ public class Window {
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background-color: transparent;");
-        scrollPane.setPrefHeight(80);
-        scrollPane.setMinHeight(80);
+        scrollPane.setPrefHeight(100);
+        scrollPane.setMinHeight(100);
         scrollPane.setPrefViewportWidth(360);
         scrollPane.setMaxWidth(360);
         this.filenameScrollPane = scrollPane;
@@ -930,7 +940,23 @@ public class Window {
         return grandparent.getName() + File.separator + parent.getName();
     }
 
-    private Label createDirectoryLabel(File file) {
+    private String getLastTwoPathComponents(File directory) {
+        if (directory == null) {
+            return "";
+        }
+
+        final File parent = directory.getParentFile();
+        if (parent == null) {
+            return directory.getName();
+        }
+
+        return parent.getName() + File.separator + directory.getName();
+    }
+
+    private HBox createDirectoryLabel(File file) {
+        final Label sourceLabel = new Label("Source:");
+        sourceLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: gray;");
+
         directoryLabel = new Label(getLastTwoDirectoryComponents(file));
         directoryLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: gray; -fx-cursor: hand;");
         directoryLabel.setOnMouseClicked(event -> {
@@ -938,7 +964,78 @@ public class Window {
                 onDirectoryChange.run();
             }
         });
-        return directoryLabel;
+
+        final HBox row = new HBox(sourceLabel, directoryLabel);
+        row.setSpacing(5);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private HBox createDestinationDirectoryRow() {
+        final Label saveToLabel = new Label("Save to:");
+        saveToLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: gray;");
+
+        destinationDirectoryLabel = new Label(getLastTwoPathComponents(destinationDirectory));
+        destinationDirectoryLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: gray; -fx-cursor: hand;");
+        destinationDirectoryLabel.setOnMouseClicked(event -> {
+            final javafx.stage.DirectoryChooser chooser = new javafx.stage.DirectoryChooser();
+            chooser.setTitle("Select Destination Directory");
+            chooser.setInitialDirectory(destinationDirectory);
+            final File selectedDir = chooser.showDialog(controlStage != null ? controlStage : imageStage);
+            if (selectedDir != null) {
+                destinationDirectory = selectedDir;
+                destinationDirectoryLabel.setText(getLastTwoPathComponents(destinationDirectory));
+            }
+        });
+
+        saveImageButton = new Button("Save Image");
+        saveImageButton.setStyle("-fx-font-size: 12px; -fx-padding: 5px 10px;");
+        saveImageButton.setOnAction(event -> handleSaveToDestination());
+
+        final HBox row = new HBox(saveToLabel, destinationDirectoryLabel, saveImageButton);
+        row.setSpacing(5);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private void handleSaveToDestination() {
+        try {
+            final String newFilename = filenameEditor.getFilename();
+            final File outputFile = new File(destinationDirectory, newFilename);
+
+            // Check if we're saving to a different location or with a different name
+            final boolean isDifferentLocation = !destinationDirectory.equals(currentFile.getParentFile());
+            final boolean isDifferentName = !newFilename.equals(currentFile.getName());
+
+            if (!isDifferentLocation && !isDifferentName) {
+                // No change - just return
+                return;
+            }
+
+            // Get current image
+            final RenderedImage currentImage = imageCanvas.getCurrentImage();
+            final String format = getImageFormat(currentFile);
+
+            // Save to destination
+            ImageIO.write(currentImage, format, outputFile);
+
+            // If saving to different location, keep the original file
+            // If just renaming in same directory, delete the original
+            if (!isDifferentLocation && isDifferentName) {
+                undoManager.saveStateBeforeOperation(currentFile);
+                undoManager.setRenamedFileForLastOperation(outputFile);
+                currentFile.delete();
+                if (onFileRenamed != null) {
+                    onFileRenamed.accept(currentFile, outputFile);
+                }
+                currentFile = outputFile;
+                undoButton.setDisable(!undoManager.canUndo());
+            }
+
+            // Show success feedback (optional - could add a status label if desired)
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public Stage getImageStage() {
@@ -947,6 +1044,29 @@ public class Window {
 
     public Stage getControlStage() {
         return controlStage;
+    }
+
+    public File getDestinationDirectory() {
+        return destinationDirectory;
+    }
+
+    public void setDestinationDirectory(final File destinationDirectory) {
+        this.destinationDirectory = destinationDirectory;
+        if (destinationDirectoryLabel != null) {
+            destinationDirectoryLabel.setText(getLastTwoPathComponents(destinationDirectory));
+        }
+    }
+
+    public void saveToDestination() {
+        handleSaveToDestination();
+    }
+
+    public Button getSaveImageButton() {
+        return saveImageButton;
+    }
+
+    public Label getDestinationDirectoryLabel() {
+        return destinationDirectoryLabel;
     }
 
     private FilenameEditor createFilenameEditor(final File file) {

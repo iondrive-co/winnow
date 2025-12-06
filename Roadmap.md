@@ -1,6 +1,6 @@
 Upcoming:
-- 0.8.1 frequent directory dropdown to change target for image save
-- 0.8.2 replace arrow buttons with rename, cleanup positioning,
+- 0.8.2 frequent directory dropdown
+- 0.8.3 replace arrow buttons with rename, cleanup positioning
 - 0.9  bugfixes
 
 Done:
@@ -12,3 +12,4 @@ Done:
 - 0.6 Better rotation and selection icons, implement drag rotation
 - 0.7 release packaging, web version
 - 0.8 integrate with smoosh
+- 0.8.1 Save to directory
